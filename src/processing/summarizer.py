@@ -10,6 +10,7 @@ Caching strategy:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import replace
@@ -22,20 +23,25 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["summarize_digest"]
 
-_DEFAULT_MODEL = "MiMo"
+_DEFAULT_MODEL = "mimo-v2.5-pro"
 _DEFAULT_BASE_URL = "https://api.siliconflow.cn/v1"
-_DEFAULT_MAX_ITEMS_PER_DOMAIN = 5
+_DEFAULT_MAX_ITEMS_PER_DOMAIN = 50
 
 _SYSTEM_PROMPT = (
     "You are a news summarizer. For each item, write a 1-2 sentence "
-    "summary in the SAME LANGUAGE as the title. Be concise and informative."
+    "summary in the SAME LANGUAGE as the title. Be concise, informative, "
+    "and focus on the key facts or impact. If you only have a title, "
+    "infer the likely topic and write a brief context sentence."
 )
 
 # L1: In-memory summary cache keyed by URL hash (bounded to prevent memory leak)
 _summary_cache: dict[str, str] = {}
 # Mapping from url_hash -> url, needed for SQLite L2 lookups/persistence
 _hash_to_url: dict[str, str] = {}
-_CACHE_MAX_SIZE = 500
+_CACHE_MAX_SIZE = 2000
+
+# Threshold below which raw_text is considered too short for summarization
+_MIN_RAW_TEXT_LENGTH = 50
 
 
 async def summarize_digest(
@@ -86,6 +92,7 @@ async def summarize_digest(
     base_url = ai_cfg.get("base_url", _DEFAULT_BASE_URL)
     model = ai_cfg.get("model", _DEFAULT_MODEL)
     max_per_domain: int = ai_cfg.get("max_items_per_domain", _DEFAULT_MAX_ITEMS_PER_DOMAIN)
+    proxy = config.get("proxy")
 
     client = AsyncOpenAI(api_key=api_key, base_url=base_url)
 
@@ -111,7 +118,7 @@ async def summarize_digest(
             continue
 
         try:
-            summaries = await _summarize_batch(uncached_items, client, model)
+            summaries = await _summarize_batch(uncached_items, client, model, proxy)
             for url_hash, summary in summaries.items():
                 if len(_summary_cache) >= _CACHE_MAX_SIZE:
                     evicted_hash = next(iter(_summary_cache))
@@ -214,52 +221,134 @@ def _persist_new_summaries(all_summaries: dict[str, str]) -> None:
         logger.error("Failed to persist summaries to SQLite", exc_info=True)
 
 
+async def _fetch_article_text(url: str, proxy: str | None = None) -> str:
+    """Fetch and extract article body text from URL using trafilatura.
+
+    Used as fallback when an item has no raw_text (enrichment failed or
+    was skipped). Returns first 800 chars of extracted body, or '' on failure.
+    """
+    try:
+        import os
+
+        import trafilatura
+
+        def _download() -> str | None:
+            old_http = os.environ.get("HTTP_PROXY")
+            old_https = os.environ.get("HTTPS_PROXY")
+            try:
+                if proxy:
+                    os.environ["HTTP_PROXY"] = proxy
+                    os.environ["HTTPS_PROXY"] = proxy
+                return trafilatura.fetch_url(url)
+            finally:
+                if old_http is None:
+                    os.environ.pop("HTTP_PROXY", None)
+                else:
+                    os.environ["HTTP_PROXY"] = old_http
+                if old_https is None:
+                    os.environ.pop("HTTPS_PROXY", None)
+                else:
+                    os.environ["HTTPS_PROXY"] = old_https
+
+        downloaded: str | None = await asyncio.to_thread(_download)
+        if not downloaded:
+            return ""
+
+        def _extract() -> str:
+            return trafilatura.extract(downloaded, include_comments=False) or ""
+
+        text: str = await asyncio.to_thread(_extract)
+        if text:
+            return text[:800]
+    except Exception:
+        logger.debug("Could not fetch article text from %s", url)
+
+    return ""
+
+
+_BATCH_SIZE = 10  # Items per LLM API call to avoid token limits
+
+
 async def _summarize_batch(
     items: list[Item],
     client: AsyncOpenAI,
     model: str,
+    proxy: str | None = None,
 ) -> dict[str, str]:
     """Send a batch of items to the LLM for summarization.
 
+    For items with empty/short raw_text, fetches article content first.
+    Splits into sub-batches of _BATCH_SIZE to avoid token limits.
     Returns dict mapping item.url_hash -> summary text.
     """
     if not items:
         return {}
 
+    # Fetch article text for items with insufficient raw_text
+    enriched_items: list[Item] = []
+    for item in items:
+        if len(item.raw_text.strip()) < _MIN_RAW_TEXT_LENGTH:
+            article_text = await _fetch_article_text(item.url, proxy)
+            if article_text:
+                enriched_items.append(replace(item, raw_text=article_text))
+            else:
+                enriched_items.append(item)
+        else:
+            enriched_items.append(item)
+
+    # Split into sub-batches to avoid exceeding LLM context window
+    all_summaries: dict[str, str] = {}
+    for i in range(0, len(enriched_items), _BATCH_SIZE):
+        sub_batch = enriched_items[i : i + _BATCH_SIZE]
+        result = await _call_llm(sub_batch, client, model)
+        all_summaries.update(result)
+
+    return all_summaries
+
+
+async def _call_llm(
+    items: list[Item],
+    client: AsyncOpenAI,
+    model: str,
+) -> dict[str, str]:
+    """Call LLM API for a single sub-batch of items."""
     user_payload: list[dict[str, str]] = [
         {"title": item.title, "url": item.url, "raw_text": item.raw_text}
         for item in items
     ]
 
-    try:
-        response = await client.chat.completions.create(
-            model=model,
-            max_tokens=1024,
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": (
-                        "Summarize each of the following news items. "
-                        "Return a JSON object mapping each URL to its summary.\n\n"
-                        f"{json.dumps(user_payload, ensure_ascii=False, indent=2)}"
-                    ),
-                },
-            ],
-        )
-    except Exception as exc:
-        logger.error("LLM API error during summarization: %s", exc)
-        return {}
+    prompt = (
+        "Summarize each news item below in 1-2 sentences, same language as the title.\n"
+        "Return ONLY a JSON object mapping URL to summary. No markdown, no explanation.\n"
+        "Example: {\"https://example.com\": \"This is the summary.\"}\n\n"
+        f"{json.dumps(user_payload, ensure_ascii=False, indent=2)}"
+    )
 
-    # Extract text from the response
-    response_text = response.choices[0].message.content or ""
-    if not response_text:
-        logger.warning("Empty response from LLM API")
-        return {}
+    for attempt in range(2):
+        try:
+            response = await client.chat.completions.create(
+                model=model,
+                max_tokens=8192,
+                messages=[
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+        except Exception as exc:
+            logger.error("LLM API error during summarization: %s", exc)
+            return {}
 
-    # Parse the JSON mapping from the response
-    summaries = _parse_summary_response(response_text, items)
-    return summaries
+        response_text = response.choices[0].message.content or ""
+        if not response_text:
+            logger.warning("Empty LLM response, attempt %d/2", attempt + 1)
+            continue
+
+        result = _parse_summary_response(response_text, items)
+        if result:
+            return result
+        logger.warning("JSON parse failed on attempt %d/2, retrying", attempt + 1)
+
+    return {}
 
 
 def _parse_summary_response(
@@ -267,32 +356,78 @@ def _parse_summary_response(
 ) -> dict[str, str]:
     """Parse the JSON summary response, mapping URLs to summaries.
 
-    Falls back to assigning the full response text to each item if
-    JSON parsing fails.
+    Handles markdown code blocks, extra text around JSON, and fuzzy URL matching.
+    Returns empty dict if parsing fails completely.
     """
     text = response_text.strip()
-    if text.startswith("```"):
+
+    # Strip markdown code blocks
+    if "```" in text:
         lines = text.split("\n")
         lines = [line for line in lines if not line.strip().startswith("```")]
-        text = "\n".join(lines)
+        text = "\n".join(lines).strip()
+
+    # Try to extract JSON object from surrounding text
+    if not text.startswith("{"):
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1:
+            text = text[start : end + 1]
 
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError:
-        logger.warning("Failed to parse LLM response as JSON, using fallback")
-        return {item.url_hash: response_text[:200] for item in items}
+        logger.warning("Failed to parse LLM response as JSON: %s...", text[:100])
+        return {}
+
+    if not isinstance(parsed, dict):
+        return {}
+
+    # Validate: values should be strings, not nested objects
+    values = list(parsed.values())
+    if not values or not all(isinstance(v, str) for v in values):
+        return {}
 
     url_to_hash = {item.url: item.url_hash for item in items}
     result: dict[str, str] = {}
 
+    # Strategy 1: Exact URL match
     for key, summary in parsed.items():
+        if not summary:
+            continue
         url_hash = url_to_hash.get(key)
         if url_hash is not None:
-            result[url_hash] = str(summary)
-        else:
-            for url, h in url_to_hash.items():
-                if key in url or url in key:
-                    result[h] = str(summary)
+            result[url_hash] = str(summary).strip()
+
+    # Strategy 2: If count matches, use positional mapping
+    if len(result) < len(items) and len(values) == len(items):
+        for item, summary in zip(items, values):
+            if item.url_hash not in result and summary:
+                result[item.url_hash] = str(summary).strip()
+
+    # Strategy 3: Partial URL match (last path segment)
+    if len(result) < len(items):
+        unmatched = [i for i in items if i.url_hash not in result]
+        for key, summary in parsed.items():
+            if not summary:
+                continue
+            key_parts = key.rstrip("/").split("/")
+            key_tail = key_parts[-1] if key_parts else ""
+            if len(key_tail) < 10:
+                continue
+            for item in unmatched:
+                if item.url_hash in result:
+                    continue
+                if key_tail in item.url:
+                    result[item.url_hash] = str(summary).strip()
                     break
+
+    # Never return partial results that are too small
+    if len(result) < len(items) // 2:
+        logger.debug(
+            "Only matched %d/%d items, discarding partial result",
+            len(result), len(items),
+        )
+        return {}
 
     return result

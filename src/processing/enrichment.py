@@ -79,10 +79,25 @@ async def _extract_description(url: str, proxy: str | None = None) -> str:
 
 def _fetch_page(url: str, proxy: str | None = None) -> str | None:
     """Download a page via trafilatura, optionally through a proxy."""
-    if proxy:
-        # trafilatura.fetch_url supports a `proxy` kwarg for HTTP/HTTPS proxies.
-        return trafilatura.fetch_url(url, proxy=proxy)
-    return trafilatura.fetch_url(url)
+    import os
+
+    old_http = os.environ.get("HTTP_PROXY")
+    old_https = os.environ.get("HTTPS_PROXY")
+    try:
+        if proxy:
+            os.environ["HTTP_PROXY"] = proxy
+            os.environ["HTTPS_PROXY"] = proxy
+        return trafilatura.fetch_url(url)
+    finally:
+        # Restore original env vars
+        if old_http is None:
+            os.environ.pop("HTTP_PROXY", None)
+        else:
+            os.environ["HTTP_PROXY"] = old_http
+        if old_https is None:
+            os.environ.pop("HTTPS_PROXY", None)
+        else:
+            os.environ["HTTPS_PROXY"] = old_https
 
 
 def _extract_metadata_description(html: str) -> str:

@@ -72,8 +72,8 @@ ai_summary:
   enabled: true
   api_key: "${MIMO_API_KEY}"
   base_url: "https://token-plan-cn.xiaomimimo.com/v1"
-  model: "MiMo"
-  max_items_per_domain: 5
+  model: "mimo-v2.5-pro"
+  max_items_per_domain: 50
 
 output:
   formats: ["markdown", "html"]

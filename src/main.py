@@ -10,7 +10,7 @@ import asyncio
 import importlib
 import logging
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from src.config import load_config
@@ -91,7 +91,7 @@ async def run_daily_digest(config: dict, date_override: str | None = None) -> No
         8. Render and save outputs (markdown, html)
         9. Optionally push to Telegram
     """
-    date_str = date_override or datetime.utcnow().strftime("%Y-%m-%d")
+    date_str = date_override or datetime.now(UTC).strftime("%Y-%m-%d")
     logger.info("Starting daily digest pipeline for %s", date_str)
 
     # 1. Initialize database

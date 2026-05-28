@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from src.models import Item
@@ -81,6 +81,28 @@ def insert_items(items: list[Item], conn: sqlite3.Connection) -> int:
     return count
 
 
+def _parse_timestamp(value: str | None) -> datetime | None:
+    """Parse a SQLite timestamp string into a timezone-aware datetime."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M:%SZ",
+        "%Y-%m-%dT%H:%M:%S%z",
+    ):
+        try:
+            dt = datetime.strptime(value, fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+        except ValueError:
+            continue
+    return None
+
+
 def get_items_since(since: datetime, conn: sqlite3.Connection) -> list[Item]:
     cursor = conn.execute(
         "SELECT * FROM items WHERE collected_at >= ? ORDER BY score DESC",
@@ -97,8 +119,8 @@ def get_items_since(since: datetime, conn: sqlite3.Connection) -> list[Item]:
             raw_text=row["raw_text"] or "",
             summary=row["summary"] or "",
             lang=row["lang"],
-            published_at=row["published_at"],
-            collected_at=row["collected_at"],
+            published_at=_parse_timestamp(row["published_at"]),
+            collected_at=_parse_timestamp(row["collected_at"]),
         )
         for row in rows
     ]
