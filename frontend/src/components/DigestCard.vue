@@ -1,4 +1,6 @@
 <script setup>
+import { computed } from 'vue'
+
 const props = defineProps({
   item: {
     type: Object,
@@ -36,6 +38,31 @@ function formatDate(dateStr) {
 }
 
 const domain = getDomainInfo(props.item.domain)
+
+function truncateText(text, maxLen) {
+  if (!text || text.length <= maxLen) return text
+  const truncated = text.substring(0, maxLen)
+
+  // Try sentence boundary
+  const lastPeriod = Math.max(truncated.lastIndexOf('. '), truncated.lastIndexOf('。'), truncated.lastIndexOf('！'), truncated.lastIndexOf('？'))
+  if (lastPeriod > maxLen * 0.5) {
+    return truncated.substring(0, lastPeriod + 1).trim() + '...'
+  }
+
+  // Word boundary
+  const lastSpace = truncated.lastIndexOf(' ')
+  if (lastSpace > maxLen * 0.5) {
+    return truncated.substring(0, lastSpace).trim() + '...'
+  }
+
+  return truncated.trim() + '...'
+}
+
+const displayText = computed(() => {
+  const text = props.item.summary || props.item.raw_text || ''
+  if (!text) return 'No preview available'
+  return truncateText(text, 200)
+})
 </script>
 
 <template>
@@ -87,8 +114,8 @@ const domain = getDomainInfo(props.item.domain)
       </div>
 
       <!-- Summary -->
-      <p class="card-summary" v-if="item.summary || item.raw_text">
-        {{ item.summary || item.raw_text }}
+      <p class="card-summary" :class="{ 'no-preview': !item.summary && !item.raw_text }">
+        {{ displayText }}
       </p>
 
       <!-- Tags -->
@@ -229,6 +256,12 @@ const domain = getDomainInfo(props.item.domain)
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.card-summary.no-preview {
+  color: var(--color-text-muted);
+  font-style: italic;
+  opacity: 0.6;
 }
 
 /* Tags */

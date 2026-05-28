@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import feedparser
 
 from src.models import Item
+from src.processing.cleaner import clean_text
 from src.sources.base import BaseCollector
 
 logger = logging.getLogger(__name__)
@@ -84,7 +85,7 @@ class RSSCollector(BaseCollector):
                     url=link,
                     source=f"rss:{name}",
                     domain=domain,
-                    raw_text=summary,
+                    raw_text=clean_text(summary, max_len=500),
                     published_at=published_at,
                 )
             )

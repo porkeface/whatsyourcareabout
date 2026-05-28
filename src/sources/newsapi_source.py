@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from urllib.parse import quote
 
 from src.models import Item
+from src.processing.cleaner import clean_text
 from src.sources.base import BaseCollector
 
 logger = logging.getLogger(__name__)
@@ -91,7 +92,7 @@ class NewsAPICollector(BaseCollector):
                     source=self.source_name(),
                     domain=self.domain(),
                     score=1.0,
-                    raw_text=description,
+                    raw_text=clean_text(description, max_len=500),
                     published_at=published_at,
                 )
             )

@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timezone
 
 from src.models import Item
+from src.processing.cleaner import clean_text
 from src.sources.base import BaseCollector
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ class HackerNewsCollector(BaseCollector):
             source=self.source_name(),
             domain=self.domain(),
             score=score,
-            raw_text=data.get("text", ""),
+            raw_text=clean_text(data.get("text", ""), max_len=500),
             published_at=published_at,
         )
 

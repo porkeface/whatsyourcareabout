@@ -9,6 +9,7 @@ from dataclasses import replace
 import trafilatura
 
 from src.models import Item
+from src.processing.cleaner import clean_text
 
 logger = logging.getLogger(__name__)
 
@@ -58,14 +59,14 @@ async def _extract_description(url: str, proxy: str | None = None) -> str:
             _extract_metadata_description, downloaded
         )
         if meta_desc and len(meta_desc.strip()) >= _MIN_TEXT_LENGTH:
-            return meta_desc.strip()[:_MAX_DESCRIPTION_LENGTH]
+            return clean_text(meta_desc, max_len=_MAX_DESCRIPTION_LENGTH)
 
         # Step 3 — fall back to body text (first chunk).
         body_text: str = await asyncio.to_thread(
             _extract_body_text, downloaded
         )
         if body_text:
-            return body_text.strip()[:_MAX_DESCRIPTION_LENGTH]
+            return clean_text(body_text, max_len=_MAX_DESCRIPTION_LENGTH)
 
     except Exception:
         logger.warning("Failed to extract description from %s", url, exc_info=True)
