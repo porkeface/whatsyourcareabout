@@ -192,6 +192,9 @@ def _hydrate_cache_from_db(items: list[Item]) -> None:
         for url, entry in url_summaries.items():
             url_hash = url_to_hash.get(url)
             if url_hash and url_hash not in _summary_cache:
+                # Skip old entries missing title_zh — they need re-summarization
+                if not entry.get("title_zh"):
+                    continue
                 _summary_cache[url_hash] = entry
                 hydrated += 1
 

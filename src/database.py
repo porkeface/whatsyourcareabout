@@ -163,10 +163,14 @@ def update_item_summary(url: str, summary: str, conn: sqlite3.Connection) -> boo
 
 
 def update_item_summary_and_title(url: str, summary: str, title_zh: str, conn: sqlite3.Connection) -> bool:
-    """Update summary and title_zh for an item by URL. Returns True if updated."""
+    """Update summary and title_zh for an item by URL. Returns True if updated.
+
+    Updates when: summary is empty OR title_zh is empty (to allow re-translation).
+    """
     try:
         cursor = conn.execute(
-            "UPDATE items SET summary = ?, title_zh = ? WHERE url = ? AND (summary IS NULL OR summary = '')",
+            "UPDATE items SET summary = ?, title_zh = ? WHERE url = ? "
+            "AND (summary IS NULL OR summary = '' OR title_zh IS NULL OR title_zh = '')",
             (summary, title_zh, url),
         )
         updated = cursor.rowcount > 0
