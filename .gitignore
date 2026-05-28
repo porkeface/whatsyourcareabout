@@ -1,15 +1,45 @@
+# ==================== Secrets & Environment ====================
+.env
+.env.*
+!.env.example
+
+# ==================== Python ====================
 __pycache__/
 *.py[cod]
+*.pyo
 *.egg-info/
+*.egg
 dist/
 build/
-.env
-*.db
-data/
-/output/
 .venv/
 venv/
+*.so
+
+# ==================== Data & Output ====================
+data/
+/output/
+*.db
+*.sqlite3
+
+# ==================== IDE & Editor ====================
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ==================== Node / Frontend ====================
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+
+# ==================== Logs ====================
+*.log
+logs/
+
+# ==================== Misc ====================
+.python-version
+main.py
