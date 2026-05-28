@@ -30,12 +30,13 @@ sources:
         domain: "ai"
     max_items: 20
   newsapi:
-    enabled: false
+    enabled: true
     weight: 1.0
     api_key: "${NEWSAPI_KEY}"
+    queries: ["artificial intelligence", "stock market", "technology"]
     max_items: 20
   finnhub:
-    enabled: false
+    enabled: true
     weight: 1.0
     api_key: "${FINNHUB_KEY}"
     max_items: 15
@@ -65,10 +66,10 @@ processing:
   max_items_per_domain: 10
 
 ai_summary:
-  enabled: false
-  provider: "claude"
-  api_key: "${ANTHROPIC_API_KEY}"
-  model: "claude-haiku-4-5-20251001"
+  enabled: true
+  api_key: "${MIMO_API_KEY}"
+  base_url: "https://token-plan-cn.xiaomimimo.com/v1"
+  model: "MiMo"
   max_items_per_domain: 5
 
 output:

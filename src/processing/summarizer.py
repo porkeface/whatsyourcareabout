@@ -1,8 +1,7 @@
 """AI-powered summarization module for the daily hot topics aggregator.
 
-Uses the Anthropic Claude API to generate concise summaries for top
-items per domain. Summaries are cached by URL hash to avoid redundant
-API calls within a session.
+Supports any OpenAI-compatible API (MiMo, DeepSeek, GPT, Claude via proxy, etc.)
+Configure via config.yaml ai_summary section with provider, base_url, api_key, model.
 """
 
 from __future__ import annotations
@@ -10,9 +9,8 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import replace
-from typing import Any
 
-import anthropic
+from openai import AsyncOpenAI
 
 from src.models import DailyDigest, Item
 
@@ -20,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["summarize_digest"]
 
-_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+_DEFAULT_MODEL = "MiMo"
+_DEFAULT_BASE_URL = "https://api.siliconflow.cn/v1"
 _DEFAULT_MAX_ITEMS_PER_DOMAIN = 5
 
 _SYSTEM_PROMPT = (
@@ -28,16 +27,10 @@ _SYSTEM_PROMPT = (
     "summary in the SAME LANGUAGE as the title. Be concise and informative."
 )
 
-# ---------------------------------------------------------------------------
 # In-memory summary cache keyed by URL hash (bounded to prevent memory leak)
-# ---------------------------------------------------------------------------
 _summary_cache: dict[str, str] = {}
 _CACHE_MAX_SIZE = 500
 
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 async def summarize_digest(
     digest: DailyDigest, config: dict
@@ -49,14 +42,13 @@ async def summarize_digest(
     digest:
         The daily digest whose items should be summarized.
     config:
-        Full application configuration.  Expected key:
+        Full application configuration.  Expected key::
 
-        ``config["ai_summary"]``::
-
-            {
+            config["ai_summary"] = {
                 "enabled": bool,
                 "api_key": str,
-                "model": str,              # default "claude-haiku-4-5-20251001"
+                "base_url": str,           # default "https://api.siliconflow.cn/v1"
+                "model": str,              # default "MiMo"
                 "max_items_per_domain": int # default 5
             }
 
@@ -77,21 +69,18 @@ async def summarize_digest(
         logger.warning("AI summarization enabled but no api_key configured, skipping")
         return digest
 
+    base_url = ai_cfg.get("base_url", _DEFAULT_BASE_URL)
     model = ai_cfg.get("model", _DEFAULT_MODEL)
     max_per_domain: int = ai_cfg.get("max_items_per_domain", _DEFAULT_MAX_ITEMS_PER_DOMAIN)
 
-    client = anthropic.AsyncAnthropic(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key, base_url=base_url)
 
     # Group items by domain and take the top N per domain
     domain_groups: dict[str, list[Item]] = {}
     for item in digest.items:
         domain_groups.setdefault(item.domain, []).append(item)
 
-    # Build a map from url_hash -> Item for all items in the digest
-    item_by_hash: dict[str, Item] = {item.url_hash: item for item in digest.items}
-
-    # Process each domain in parallel would be ideal, but we batch per domain
-    # into a single API call for efficiency.
+    # Process each domain: batch into a single API call per domain
     all_summaries: dict[str, str] = {}
 
     for domain, items in domain_groups.items():
@@ -137,30 +126,14 @@ async def summarize_digest(
     )
 
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
 async def _summarize_batch(
     items: list[Item],
-    client: anthropic.AsyncAnthropic,
+    client: AsyncOpenAI,
     model: str,
 ) -> dict[str, str]:
-    """Send a batch of items to Claude for summarization.
+    """Send a batch of items to the LLM for summarization.
 
-    Parameters
-    ----------
-    items:
-        Items to summarize (should be a single domain's top items).
-    client:
-        An ``anthropic.AsyncAnthropic`` client instance.
-    model:
-        Model identifier to use.
-
-    Returns
-    -------
-    dict[str, str]
-        Mapping of ``item.url_hash`` -> summary text.
+    Returns dict mapping item.url_hash -> summary text.
     """
     if not items:
         return {}
@@ -171,11 +144,11 @@ async def _summarize_batch(
     ]
 
     try:
-        response = await client.messages.create(
+        response = await client.chat.completions.create(
             model=model,
             max_tokens=1024,
-            system=_SYSTEM_PROMPT,
             messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
                 {
                     "role": "user",
                     "content": (
@@ -183,38 +156,22 @@ async def _summarize_batch(
                         "Return a JSON object mapping each URL to its summary.\n\n"
                         f"{json.dumps(user_payload, ensure_ascii=False, indent=2)}"
                     ),
-                }
+                },
             ],
         )
-    except anthropic.APIError as exc:
-        logger.error("Anthropic API error during summarization: %s", exc)
-        return {}
     except Exception as exc:
-        logger.error("Unexpected error calling Claude API: %s", exc)
+        logger.error("LLM API error during summarization: %s", exc)
         return {}
 
     # Extract text from the response
-    response_text = _extract_response_text(response)
+    response_text = response.choices[0].message.content or ""
     if not response_text:
-        logger.warning("Empty response from Claude API")
+        logger.warning("Empty response from LLM API")
         return {}
 
     # Parse the JSON mapping from the response
     summaries = _parse_summary_response(response_text, items)
     return summaries
-
-
-def _extract_response_text(response: Any) -> str:
-    """Extract the text content from a Claude API response."""
-    try:
-        content_blocks = response.content
-        text_parts: list[str] = []
-        for block in content_blocks:
-            if getattr(block, "type", "") == "text":
-                text_parts.append(block.text)
-        return "\n".join(text_parts)
-    except Exception:
-        return ""
 
 
 def _parse_summary_response(
@@ -225,23 +182,18 @@ def _parse_summary_response(
     Falls back to assigning the full response text to each item if
     JSON parsing fails.
     """
-    # Try to extract JSON from the response (may be wrapped in markdown)
     text = response_text.strip()
     if text.startswith("```"):
-        # Strip markdown code fences
         lines = text.split("\n")
-        lines = [l for l in lines if not l.strip().startswith("```")]
+        lines = [line for line in lines if not line.strip().startswith("```")]
         text = "\n".join(lines)
 
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError:
-        logger.warning("Failed to parse Claude response as JSON, using fallback")
-        # Fallback: assign a generic summary to each item
+        logger.warning("Failed to parse LLM response as JSON, using fallback")
         return {item.url_hash: response_text[:200] for item in items}
 
-    # Build the url_hash -> summary mapping
-    # The response may use full URLs as keys; map them back to url_hashes
     url_to_hash = {item.url: item.url_hash for item in items}
     result: dict[str, str] = {}
 
@@ -250,7 +202,6 @@ def _parse_summary_response(
         if url_hash is not None:
             result[url_hash] = str(summary)
         else:
-            # Key might be a URL that doesn't exactly match; try substring match
             for url, h in url_to_hash.items():
                 if key in url or url in key:
                     result[h] = str(summary)
