@@ -13,6 +13,7 @@ class Item:
     score: float = 0.0
     raw_text: str = ""
     summary: str = ""
+    title_zh: str = ""
     lang: str = "en"
     published_at: datetime | None = None
     collected_at: datetime = field(default_factory=lambda: datetime.now(UTC))

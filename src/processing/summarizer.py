@@ -28,10 +28,11 @@ _DEFAULT_BASE_URL = "https://api.siliconflow.cn/v1"
 _DEFAULT_MAX_ITEMS_PER_DOMAIN = 50
 
 _SYSTEM_PROMPT = (
-    "You are a news summarizer. For each item, write a 1-2 sentence "
-    "summary in the SAME LANGUAGE as the title. Be concise, informative, "
-    "and focus on the key facts or impact. If you only have a title, "
-    "infer the likely topic and write a brief context sentence."
+    "你是一个新闻摘要助手。对于每条新闻，你需要完成两个任务：\n"
+    "1. 将标题翻译为中文（title_zh）\n"
+    "2. 用中文写1-2句摘要（summary），简洁、信息丰富，聚焦关键事实或影响\n"
+    "如果只有标题没有正文，根据标题推断主题并写一句简要背景。\n"
+    "所有输出必须是中文。"
 )
 
 # L1: In-memory summary cache keyed by URL hash (bounded to prevent memory leak)
@@ -102,7 +103,7 @@ async def summarize_digest(
         domain_groups.setdefault(item.domain, []).append(item)
 
     # Process each domain: batch into a single API call per domain
-    all_summaries: dict[str, str] = {}
+    all_results: dict[str, dict[str, str]] = {}
 
     for domain, items in domain_groups.items():
         # Skip items that already have a cached summary (L1 hit)
@@ -110,7 +111,7 @@ async def summarize_digest(
         for item in items[:max_per_domain]:
             cached = _summary_cache.get(item.url_hash)
             if cached is not None:
-                all_summaries[item.url_hash] = cached
+                all_results[item.url_hash] = cached
             else:
                 uncached_items.append(item)
 
@@ -118,14 +119,14 @@ async def summarize_digest(
             continue
 
         try:
-            summaries = await _summarize_batch(uncached_items, client, model, proxy)
-            for url_hash, summary in summaries.items():
+            results = await _summarize_batch(uncached_items, client, model, proxy)
+            for url_hash, entry in results.items():
                 if len(_summary_cache) >= _CACHE_MAX_SIZE:
                     evicted_hash = next(iter(_summary_cache))
                     _summary_cache.pop(evicted_hash)
                     _hash_to_url.pop(evicted_hash, None)
-                _summary_cache[url_hash] = summary
-                all_summaries[url_hash] = summary
+                _summary_cache[url_hash] = entry
+                all_results[url_hash] = entry
         except Exception:
             logger.error(
                 "Failed to summarize batch for domain '%s', skipping",
@@ -134,14 +135,18 @@ async def summarize_digest(
             )
 
     # Persist newly generated summaries to L2 (SQLite)
-    _persist_new_summaries(all_summaries)
+    _persist_new_summaries(all_results)
 
     # Build a new DailyDigest with updated items (immutable pattern)
     updated_items: list[Item] = []
     for item in digest.items:
-        summary_text = all_summaries.get(item.url_hash)
-        if summary_text is not None:
-            updated_items.append(replace(item, summary=summary_text))
+        result = all_results.get(item.url_hash)
+        if result is not None:
+            updated_items.append(replace(
+                item,
+                summary=result.get("summary", ""),
+                title_zh=result.get("title_zh", ""),
+            ))
         else:
             updated_items.append(item)
 
@@ -184,10 +189,10 @@ def _hydrate_cache_from_db(items: list[Item]) -> None:
         # Build reverse mapping url->hash for populating cache
         url_to_hash = {v: k for k, v in _hash_to_url.items()}
         hydrated = 0
-        for url, summary in url_summaries.items():
+        for url, entry in url_summaries.items():
             url_hash = url_to_hash.get(url)
             if url_hash and url_hash not in _summary_cache:
-                _summary_cache[url_hash] = summary
+                _summary_cache[url_hash] = entry
                 hydrated += 1
 
         if hydrated:
@@ -196,21 +201,26 @@ def _hydrate_cache_from_db(items: list[Item]) -> None:
         logger.error("Failed to hydrate cache from SQLite", exc_info=True)
 
 
-def _persist_new_summaries(all_summaries: dict[str, str]) -> None:
-    """Persist summaries that were newly generated (not already in DB) to SQLite.
+def _persist_new_summaries(all_results: dict[str, dict[str, str]]) -> None:
+    """Persist summaries and title_zh that were newly generated to SQLite.
 
-    Only writes summaries whose URL is known in _hash_to_url and that were
-    not already present in the DB (the UPDATE query only sets empty summaries).
+    Only writes entries whose URL is known in _hash_to_url and that were
+    not already present in the DB.
     """
     try:
-        from src.database import get_connection, update_item_summary
+        from src.database import get_connection, update_item_summary_and_title
 
         conn = get_connection()
         try:
             persisted = 0
-            for url_hash, summary in all_summaries.items():
+            for url_hash, entry in all_results.items():
                 url = _hash_to_url.get(url_hash)
-                if url and update_item_summary(url, summary, conn):
+                if url and update_item_summary_and_title(
+                    url,
+                    entry.get("summary", ""),
+                    entry.get("title_zh", ""),
+                    conn,
+                ):
                     persisted += 1
             conn.commit()
             if persisted:
@@ -274,12 +284,12 @@ async def _summarize_batch(
     client: AsyncOpenAI,
     model: str,
     proxy: str | None = None,
-) -> dict[str, str]:
+) -> dict[str, dict[str, str]]:
     """Send a batch of items to the LLM for summarization.
 
     For items with empty/short raw_text, fetches article content first.
     Splits into sub-batches of _BATCH_SIZE to avoid token limits.
-    Returns dict mapping item.url_hash -> summary text.
+    Returns dict mapping item.url_hash -> {"title_zh": ..., "summary": ...}.
     """
     if not items:
         return {}
@@ -297,30 +307,34 @@ async def _summarize_batch(
             enriched_items.append(item)
 
     # Split into sub-batches to avoid exceeding LLM context window
-    all_summaries: dict[str, str] = {}
+    all_results: dict[str, dict[str, str]] = {}
     for i in range(0, len(enriched_items), _BATCH_SIZE):
         sub_batch = enriched_items[i : i + _BATCH_SIZE]
         result = await _call_llm(sub_batch, client, model)
-        all_summaries.update(result)
+        all_results.update(result)
 
-    return all_summaries
+    return all_results
 
 
 async def _call_llm(
     items: list[Item],
     client: AsyncOpenAI,
     model: str,
-) -> dict[str, str]:
-    """Call LLM API for a single sub-batch of items."""
+) -> dict[str, dict[str, str]]:
+    """Call LLM API for a single sub-batch of items.
+
+    Returns dict mapping url_hash -> {"title_zh": ..., "summary": ...}.
+    """
     user_payload: list[dict[str, str]] = [
         {"title": item.title, "url": item.url, "raw_text": item.raw_text}
         for item in items
     ]
 
     prompt = (
-        "Summarize each news item below in 1-2 sentences, same language as the title.\n"
-        "Return ONLY a JSON object mapping URL to summary. No markdown, no explanation.\n"
-        "Example: {\"https://example.com\": \"This is the summary.\"}\n\n"
+        "将以下每条新闻翻译标题为中文，并用中文写1-2句摘要。\n"
+        "返回一个JSON对象，key为URL，value为对象包含title_zh和summary两个字段。\n"
+        "示例: {\"https://example.com\": {\"title_zh\": \"中文标题\", \"summary\": \"中文摘要\"}}\n"
+        "只返回JSON，不要markdown，不要解释。\n\n"
         f"{json.dumps(user_payload, ensure_ascii=False, indent=2)}"
     )
 
@@ -353,8 +367,8 @@ async def _call_llm(
 
 def _parse_summary_response(
     response_text: str, items: list[Item]
-) -> dict[str, str]:
-    """Parse the JSON summary response, mapping URLs to summaries.
+) -> dict[str, dict[str, str]]:
+    """Parse the JSON summary response, mapping URLs to {title_zh, summary}.
 
     Handles markdown code blocks, extra text around JSON, and fuzzy URL matching.
     Returns empty dict if parsing fails completely.
@@ -383,33 +397,35 @@ def _parse_summary_response(
     if not isinstance(parsed, dict):
         return {}
 
-    # Validate: values should be strings, not nested objects
-    values = list(parsed.values())
-    if not values or not all(isinstance(v, str) for v in values):
-        return {}
-
     url_to_hash = {item.url: item.url_hash for item in items}
-    result: dict[str, str] = {}
+    result: dict[str, dict[str, str]] = {}
+
+    def _normalize_entry(entry):
+        """Accept both {"title_zh": ..., "summary": ...} and plain string."""
+        if isinstance(entry, str):
+            return {"title_zh": "", "summary": entry}
+        if isinstance(entry, dict):
+            return {
+                "title_zh": str(entry.get("title_zh", "")),
+                "summary": str(entry.get("summary", "")),
+            }
+        return None
 
     # Strategy 1: Exact URL match
-    for key, summary in parsed.items():
-        if not summary:
+    for key, entry in parsed.items():
+        normalized = _normalize_entry(entry)
+        if not normalized or not normalized["summary"]:
             continue
         url_hash = url_to_hash.get(key)
         if url_hash is not None:
-            result[url_hash] = str(summary).strip()
+            result[url_hash] = normalized
 
-    # Strategy 2: If count matches, use positional mapping
-    if len(result) < len(items) and len(values) == len(items):
-        for item, summary in zip(items, values):
-            if item.url_hash not in result and summary:
-                result[item.url_hash] = str(summary).strip()
-
-    # Strategy 3: Partial URL match (last path segment)
+    # Strategy 2: Partial URL match (last path segment)
     if len(result) < len(items):
         unmatched = [i for i in items if i.url_hash not in result]
-        for key, summary in parsed.items():
-            if not summary:
+        for key, entry in parsed.items():
+            normalized = _normalize_entry(entry)
+            if not normalized or not normalized["summary"]:
                 continue
             key_parts = key.rstrip("/").split("/")
             key_tail = key_parts[-1] if key_parts else ""
@@ -419,7 +435,7 @@ def _parse_summary_response(
                 if item.url_hash in result:
                     continue
                 if key_tail in item.url:
-                    result[item.url_hash] = str(summary).strip()
+                    result[item.url_hash] = normalized
                     break
 
     # Never return partial results that are too small

@@ -84,7 +84,7 @@ const displayText = computed(() => {
           rel="noopener noreferrer"
           class="title-link"
         >
-          {{ item.title }}
+          {{ item.title_zh || item.title }}
           <svg class="external-icon" width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
             <path d="M3.75 2h3.5a.75.75 0 010 1.5H4.5v8h8V8.75a.75.75 0 011.5 0v3.5A1.75 1.75 0 0112.25 14h-8.5A1.75 1.75 0 012 12.25v-8.5C2 2.784 2.784 2 3.75 2zm6.72.72l3 3a.75.75 0 010 1.06l-3 3a.75.75 0 11-1.06-1.06l1.72-1.72H7a.75.75 0 010-1.5h4.13L9.41 3.78a.75.75 0 011.06-1.06z"/>
           </svg>

@@ -33,6 +33,7 @@ app.add_middleware(
 
 class ItemResponse(BaseModel):
     title: str
+    title_zh: str
     url: str
     source: str
     domain: str
@@ -74,6 +75,7 @@ class HealthResponse(BaseModel):
 def _row_to_item(row: sqlite3.Row) -> ItemResponse:
     return ItemResponse(
         title=row["title"],
+        title_zh=row["title_zh"] or "",
         url=row["url"],
         source=row["source"],
         domain=row["domain"],

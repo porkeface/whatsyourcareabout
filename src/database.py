@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS items (
     raw_text TEXT,
     lang TEXT DEFAULT 'en',
     summary TEXT,
+    title_zh TEXT DEFAULT '',
     published_at TIMESTAMP,
     collected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -52,6 +53,11 @@ def get_connection(db_path: str = DB_PATH) -> sqlite3.Connection:
 def init_db(db_path: str = DB_PATH) -> None:
     conn = get_connection(db_path)
     conn.executescript(SCHEMA)
+    # Migration: add title_zh column if missing
+    try:
+        conn.execute("ALTER TABLE items ADD COLUMN title_zh TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # column already exists
     conn.close()
 
 
@@ -59,11 +65,11 @@ def insert_item(item: Item, conn: sqlite3.Connection) -> bool:
     try:
         conn.execute(
             """INSERT OR IGNORE INTO items
-               (url, title, source, domain, score, raw_text, summary, lang, published_at, collected_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (url, title, source, domain, score, raw_text, summary, title_zh, lang, published_at, collected_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 item.url, item.title, item.source, item.domain,
-                item.score, item.raw_text, item.summary, item.lang,
+                item.score, item.raw_text, item.summary, item.title_zh, item.lang,
                 item.published_at, item.collected_at,
             ),
         )
@@ -118,6 +124,7 @@ def get_items_since(since: datetime, conn: sqlite3.Connection) -> list[Item]:
             score=row["score"],
             raw_text=row["raw_text"] or "",
             summary=row["summary"] or "",
+            title_zh=row["title_zh"] or "",
             lang=row["lang"],
             published_at=_parse_timestamp(row["published_at"]),
             collected_at=_parse_timestamp(row["collected_at"]),
@@ -155,6 +162,22 @@ def update_item_summary(url: str, summary: str, conn: sqlite3.Connection) -> boo
         return False
 
 
+def update_item_summary_and_title(url: str, summary: str, title_zh: str, conn: sqlite3.Connection) -> bool:
+    """Update summary and title_zh for an item by URL. Returns True if updated."""
+    try:
+        cursor = conn.execute(
+            "UPDATE items SET summary = ?, title_zh = ? WHERE url = ? AND (summary IS NULL OR summary = '')",
+            (summary, title_zh, url),
+        )
+        updated = cursor.rowcount > 0
+        if updated:
+            logger.debug("Persisted summary+title_zh for %s", url)
+        return updated
+    except sqlite3.Error:
+        logger.error("Failed to update summary+title_zh for url=%s", url, exc_info=True)
+        return False
+
+
 def get_items_needing_summary(conn: sqlite3.Connection) -> list[str]:
     """Get URLs of items that have no summary yet. Returns list of URLs."""
     try:
@@ -182,18 +205,21 @@ def get_summary_by_url(url: str, conn: sqlite3.Connection) -> str | None:
         return None
 
 
-def get_summaries_by_urls(urls: list[str], conn: sqlite3.Connection) -> dict[str, str]:
-    """Bulk-fetch summaries for a list of URLs. Returns url->summary mapping."""
+def get_summaries_by_urls(urls: list[str], conn: sqlite3.Connection) -> dict[str, dict[str, str]]:
+    """Bulk-fetch summaries for a list of URLs. Returns url->{summary, title_zh} mapping."""
     if not urls:
         return {}
     try:
         placeholders = ",".join("?" for _ in urls)
         cursor = conn.execute(
-            f"SELECT url, summary FROM items WHERE url IN ({placeholders}) "
+            f"SELECT url, summary, title_zh FROM items WHERE url IN ({placeholders}) "
             "AND summary IS NOT NULL AND summary != ''",
             urls,
         )
-        return {row["url"]: row["summary"] for row in cursor.fetchall()}
+        return {
+            row["url"]: {"summary": row["summary"], "title_zh": row["title_zh"] or ""}
+            for row in cursor.fetchall()
+        }
     except sqlite3.Error:
         logger.error("Failed to bulk-fetch summaries", exc_info=True)
         return {}

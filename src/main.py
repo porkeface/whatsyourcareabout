@@ -292,7 +292,12 @@ def _load_summaries_from_db(digest: DailyDigest) -> DailyDigest:
     loaded_count = 0
     for item in digest.items:
         if not item.summary and item.url in url_summaries:
-            updated_items.append(replace(item, summary=url_summaries[item.url]))
+            entry = url_summaries[item.url]
+            updated_items.append(replace(
+                item,
+                summary=entry.get("summary", ""),
+                title_zh=entry.get("title_zh", ""),
+            ))
             loaded_count += 1
         else:
             updated_items.append(item)
