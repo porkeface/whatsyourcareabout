@@ -1,3 +1,6 @@
+# Proxy for accessing blocked sites (set to null to disable)
+proxy: "http://127.0.0.1:7890"
+
 sources:
   hacker_news:
     enabled: true
