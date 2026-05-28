@@ -6,7 +6,7 @@ build/
 .env
 *.db
 data/
-output/
+/output/
 .venv/
 venv/
 .idea/

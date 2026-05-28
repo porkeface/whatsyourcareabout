@@ -55,11 +55,11 @@ def insert_item(item: Item, conn: sqlite3.Connection) -> bool:
     try:
         conn.execute(
             """INSERT OR IGNORE INTO items
-               (url, title, source, domain, score, raw_text, lang, published_at, collected_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (url, title, source, domain, score, raw_text, summary, lang, published_at, collected_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 item.url, item.title, item.source, item.domain,
-                item.score, item.raw_text, item.lang,
+                item.score, item.raw_text, item.summary, item.lang,
                 item.published_at, item.collected_at,
             ),
         )
@@ -91,6 +91,7 @@ def get_items_since(since: datetime, conn: sqlite3.Connection) -> list[Item]:
             domain=row["domain"],
             score=row["score"],
             raw_text=row["raw_text"] or "",
+            summary=row["summary"] or "",
             lang=row["lang"],
             published_at=row["published_at"],
             collected_at=row["collected_at"],

@@ -39,6 +39,24 @@ sources:
     weight: 1.0
     api_key: "${FINNHUB_KEY}"
     max_items: 15
+  rsshub:
+    enabled: false
+    weight: 0.9
+    base_url: "https://rsshub.app"
+    routes:
+      - name: "Weibo Hot"
+        path: "/weibo/search/hot"
+        domain: "social"
+      - name: "Zhihu Hot"
+        path: "/zhihu/hotlist"
+        domain: "social"
+      - name: "Bilibili Hot"
+        path: "/bilibili/ranking"
+        domain: "social"
+      - name: "36kr"
+        path: "/36kr/newsflashes"
+        domain: "tech"
+    max_items: 20
 
 processing:
   dedup_threshold: 0.85

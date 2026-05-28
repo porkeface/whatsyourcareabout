@@ -28,6 +28,9 @@ COLLECTOR_REGISTRY: dict[str, tuple[str, str]] = {
     "arxiv": ("src.sources.arxiv_collector", "ArxivCollector"),
     "github_trending": ("src.sources.github_trending", "GitHubTrendingCollector"),
     "rss": ("src.sources.rss_collector", "RSSCollector"),
+    "newsapi": ("src.sources.newsapi_source", "NewsAPICollector"),
+    "finnhub": ("src.sources.finnhub", "FinnhubCollector"),
+    "rsshub": ("src.sources.rsshub_collector", "RSSHubCollector"),
 }
 
 
@@ -178,6 +181,19 @@ async def run_daily_digest(config: dict, date_override: str | None = None) -> No
     logger.info(
         "Daily digest built: %d items for %s", digest.item_count, digest.date
     )
+
+    # 7.5. AI Summarization (optional)
+    ai_config = config.get("ai_summary", {})
+    if ai_config.get("enabled", False):
+        try:
+            from src.processing.summarizer import summarize_digest
+
+            digest = await summarize_digest(digest, config)
+            logger.info("AI summarization complete")
+        except ImportError:
+            logger.warning("Summarizer module not available, skipping")
+        except Exception as exc:
+            logger.error("AI summarization failed: %s", exc)
 
     # 8. Render and save outputs
     output_config = config.get("output", {})
