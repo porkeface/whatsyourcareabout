@@ -1,0 +1,67 @@
+sources:
+  hacker_news:
+    enabled: true
+    weight: 1.0
+    max_items: 20
+  reddit:
+    enabled: true
+    weight: 1.0
+    subreddits: ["MachineLearning", "artificial", "technology"]
+    max_items: 20
+  arxiv:
+    enabled: true
+    weight: 1.2
+    categories: ["cs.AI", "cs.CL", "cs.CV", "cs.LG"]
+    max_items: 15
+  github_trending:
+    enabled: true
+    weight: 0.8
+    languages: ["python", "typescript", "rust"]
+    max_items: 15
+  rss:
+    enabled: true
+    weight: 0.9
+    feeds:
+      - name: "TechCrunch"
+        url: "https://techcrunch.com/feed/"
+        domain: "tech"
+      - name: "Hugging Face Blog"
+        url: "https://huggingface.co/blog/feed.xml"
+        domain: "ai"
+    max_items: 20
+  newsapi:
+    enabled: false
+    weight: 1.0
+    api_key: "${NEWSAPI_KEY}"
+    max_items: 20
+  finnhub:
+    enabled: false
+    weight: 1.0
+    api_key: "${FINNHUB_KEY}"
+    max_items: 15
+
+processing:
+  dedup_threshold: 0.85
+  dedup_window_hours: 24
+  recency_half_life_hours: 12
+  max_items_per_domain: 10
+
+ai_summary:
+  enabled: false
+  provider: "claude"
+  api_key: "${ANTHROPIC_API_KEY}"
+  model: "claude-haiku-4-5-20251001"
+  max_items_per_domain: 5
+
+output:
+  formats: ["markdown", "html"]
+  output_dir: "./output"
+  telegram:
+    enabled: false
+    bot_token: "${TELEGRAM_BOT_TOKEN}"
+    chat_id: "${TELEGRAM_CHAT_ID}"
+
+schedule:
+  cron_hour: 6
+  cron_minute: 0
+  timezone: "UTC"
