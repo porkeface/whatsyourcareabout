@@ -28,11 +28,12 @@ _DEFAULT_BASE_URL = "https://api.siliconflow.cn/v1"
 _DEFAULT_MAX_ITEMS_PER_DOMAIN = 50
 
 _SYSTEM_PROMPT = (
-    "你是一个新闻摘要助手。对于每条新闻，你需要完成两个任务：\n"
+    "你是一个新闻摘要助手。对于每条新闻，你需要完成三个任务：\n"
     "1. 将标题翻译为中文（title_zh）\n"
-    "2. 用中文写1-2句摘要（summary），简洁、信息丰富，聚焦关键事实或影响\n"
+    "2. 用英文写1-2句摘要（summary），简洁、信息丰富，聚焦关键事实或影响\n"
+    "3. 用中文写1-2句摘要（summary_zh），简洁、信息丰富，聚焦关键事实或影响\n"
     "如果只有标题没有正文，根据标题推断主题并写一句简要背景。\n"
-    "所有输出必须是中文。"
+    "summary必须是英文，summary_zh必须是中文。"
 )
 
 # L1: In-memory summary cache keyed by URL hash (bounded to prevent memory leak)
@@ -145,6 +146,7 @@ async def summarize_digest(
             updated_items.append(replace(
                 item,
                 summary=result.get("summary", ""),
+                summary_zh=result.get("summary_zh", ""),
                 title_zh=result.get("title_zh", ""),
             ))
         else:
@@ -192,8 +194,8 @@ def _hydrate_cache_from_db(items: list[Item]) -> None:
         for url, entry in url_summaries.items():
             url_hash = url_to_hash.get(url)
             if url_hash and url_hash not in _summary_cache:
-                # Skip old entries missing title_zh — they need re-summarization
-                if not entry.get("title_zh"):
+                # Skip old entries missing title_zh or summary_zh — they need re-summarization
+                if not entry.get("title_zh") or not entry.get("summary_zh"):
                     continue
                 _summary_cache[url_hash] = entry
                 hydrated += 1
@@ -221,6 +223,7 @@ def _persist_new_summaries(all_results: dict[str, dict[str, str]]) -> None:
                 if url and update_item_summary_and_title(
                     url,
                     entry.get("summary", ""),
+                    entry.get("summary_zh", ""),
                     entry.get("title_zh", ""),
                     conn,
                 ):
@@ -334,9 +337,10 @@ async def _call_llm(
     ]
 
     prompt = (
-        "将以下每条新闻翻译标题为中文，并用中文写1-2句摘要。\n"
-        "返回一个JSON对象，key为URL，value为对象包含title_zh和summary两个字段。\n"
-        "示例: {\"https://example.com\": {\"title_zh\": \"中文标题\", \"summary\": \"中文摘要\"}}\n"
+        "将以下每条新闻翻译标题为中文，并分别用英文和中文写摘要。\n"
+        "返回一个JSON对象，key为URL，value为对象包含title_zh、summary、summary_zh三个字段。\n"
+        "summary用英文写，summary_zh用中文写。\n"
+        "示例: {\"https://example.com\": {\"title_zh\": \"中文标题\", \"summary\": \"English summary\", \"summary_zh\": \"中文摘要\"}}\n"
         "只返回JSON，不要markdown，不要解释。\n\n"
         f"{json.dumps(user_payload, ensure_ascii=False, indent=2)}"
     )
@@ -404,13 +408,14 @@ def _parse_summary_response(
     result: dict[str, dict[str, str]] = {}
 
     def _normalize_entry(entry):
-        """Accept both {"title_zh": ..., "summary": ...} and plain string."""
+        """Accept both new {title_zh, summary, summary_zh} and old formats."""
         if isinstance(entry, str):
-            return {"title_zh": "", "summary": entry}
+            return {"title_zh": "", "summary": entry, "summary_zh": ""}
         if isinstance(entry, dict):
             return {
                 "title_zh": str(entry.get("title_zh", "")),
                 "summary": str(entry.get("summary", "")),
+                "summary_zh": str(entry.get("summary_zh", "")),
             }
         return None
 

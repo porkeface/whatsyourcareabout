@@ -296,6 +296,7 @@ def _load_summaries_from_db(digest: DailyDigest) -> DailyDigest:
             updated_items.append(replace(
                 item,
                 summary=entry.get("summary", ""),
+                summary_zh=entry.get("summary_zh", ""),
                 title_zh=entry.get("title_zh", ""),
             ))
             loaded_count += 1

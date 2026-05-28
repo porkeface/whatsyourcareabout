@@ -59,7 +59,9 @@ function truncateText(text, maxLen) {
 }
 
 const displayText = computed(() => {
-  const text = props.item.summary || props.item.raw_text || ''
+  const text = locale.value === 'zh'
+    ? (props.item.summary_zh || props.item.summary || props.item.raw_text || '')
+    : (props.item.summary || props.item.raw_text || '')
   if (!text) return t('card.noPreview')
   return truncateText(text, 200)
 })
@@ -114,7 +116,7 @@ const displayText = computed(() => {
       </div>
 
       <!-- Summary -->
-      <p class="card-summary" :class="{ 'no-preview': !item.summary && !item.raw_text }">
+      <p class="card-summary" :class="{ 'no-preview': !item.summary && !item.summary_zh && !item.raw_text }">
         {{ displayText }}
       </p>
 

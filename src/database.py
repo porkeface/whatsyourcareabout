@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS items (
     raw_text TEXT,
     lang TEXT DEFAULT 'en',
     summary TEXT,
+    summary_zh TEXT DEFAULT '',
     title_zh TEXT DEFAULT '',
     published_at TIMESTAMP,
     collected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -58,6 +59,11 @@ def init_db(db_path: str = DB_PATH) -> None:
         conn.execute("ALTER TABLE items ADD COLUMN title_zh TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass  # column already exists
+    # Migration: add summary_zh column if missing
+    try:
+        conn.execute("ALTER TABLE items ADD COLUMN summary_zh TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # column already exists
     conn.close()
 
 
@@ -65,11 +71,11 @@ def insert_item(item: Item, conn: sqlite3.Connection) -> bool:
     try:
         conn.execute(
             """INSERT OR IGNORE INTO items
-               (url, title, source, domain, score, raw_text, summary, title_zh, lang, published_at, collected_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (url, title, source, domain, score, raw_text, summary, summary_zh, title_zh, lang, published_at, collected_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 item.url, item.title, item.source, item.domain,
-                item.score, item.raw_text, item.summary, item.title_zh, item.lang,
+                item.score, item.raw_text, item.summary, item.summary_zh, item.title_zh, item.lang,
                 item.published_at, item.collected_at,
             ),
         )
@@ -124,6 +130,7 @@ def get_items_since(since: datetime, conn: sqlite3.Connection) -> list[Item]:
             score=row["score"],
             raw_text=row["raw_text"] or "",
             summary=row["summary"] or "",
+            summary_zh=row["summary_zh"] or "",
             title_zh=row["title_zh"] or "",
             lang=row["lang"],
             published_at=_parse_timestamp(row["published_at"]),
@@ -162,16 +169,16 @@ def update_item_summary(url: str, summary: str, conn: sqlite3.Connection) -> boo
         return False
 
 
-def update_item_summary_and_title(url: str, summary: str, title_zh: str, conn: sqlite3.Connection) -> bool:
-    """Update summary and title_zh for an item by URL. Returns True if updated.
+def update_item_summary_and_title(url: str, summary: str, summary_zh: str, title_zh: str, conn: sqlite3.Connection) -> bool:
+    """Update summary, summary_zh, and title_zh for an item by URL. Returns True if updated.
 
-    Updates when: summary is empty OR title_zh is empty (to allow re-translation).
+    Updates when: summary is empty OR summary_zh is empty OR title_zh is empty.
     """
     try:
         cursor = conn.execute(
-            "UPDATE items SET summary = ?, title_zh = ? WHERE url = ? "
-            "AND (summary IS NULL OR summary = '' OR title_zh IS NULL OR title_zh = '')",
-            (summary, title_zh, url),
+            "UPDATE items SET summary = ?, summary_zh = ?, title_zh = ? WHERE url = ? "
+            "AND (summary IS NULL OR summary = '' OR summary_zh IS NULL OR summary_zh = '' OR title_zh IS NULL OR title_zh = '')",
+            (summary, summary_zh, title_zh, url),
         )
         updated = cursor.rowcount > 0
         if updated:
@@ -210,18 +217,18 @@ def get_summary_by_url(url: str, conn: sqlite3.Connection) -> str | None:
 
 
 def get_summaries_by_urls(urls: list[str], conn: sqlite3.Connection) -> dict[str, dict[str, str]]:
-    """Bulk-fetch summaries for a list of URLs. Returns url->{summary, title_zh} mapping."""
+    """Bulk-fetch summaries for a list of URLs. Returns url->{summary, summary_zh, title_zh} mapping."""
     if not urls:
         return {}
     try:
         placeholders = ",".join("?" for _ in urls)
         cursor = conn.execute(
-            f"SELECT url, summary, title_zh FROM items WHERE url IN ({placeholders}) "
+            f"SELECT url, summary, summary_zh, title_zh FROM items WHERE url IN ({placeholders}) "
             "AND summary IS NOT NULL AND summary != ''",
             urls,
         )
         return {
-            row["url"]: {"summary": row["summary"], "title_zh": row["title_zh"] or ""}
+            row["url"]: {"summary": row["summary"], "summary_zh": row["summary_zh"] or "", "title_zh": row["title_zh"] or ""}
             for row in cursor.fetchall()
         }
     except sqlite3.Error:

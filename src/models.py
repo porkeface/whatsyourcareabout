@@ -13,6 +13,7 @@ class Item:
     score: float = 0.0
     raw_text: str = ""
     summary: str = ""
+    summary_zh: str = ""
     title_zh: str = ""
     lang: str = "en"
     published_at: datetime | None = None

@@ -40,6 +40,7 @@ class ItemResponse(BaseModel):
     score: float
     raw_text: str
     summary: str
+    summary_zh: str
     lang: str
     published_at: str | None
     collected_at: str | None
@@ -82,6 +83,7 @@ def _row_to_item(row: sqlite3.Row) -> ItemResponse:
         score=row["score"],
         raw_text=row["raw_text"] or "",
         summary=row["summary"] or "",
+        summary_zh=row["summary_zh"] or "",
         lang=row["lang"],
         published_at=row["published_at"],
         collected_at=row["collected_at"],

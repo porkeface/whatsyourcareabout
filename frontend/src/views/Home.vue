@@ -33,7 +33,9 @@ const searchFilteredItems = computed(() => {
   const q = searchQuery.value.toLowerCase()
   return digest.value.items.filter(item =>
     item.title.toLowerCase().includes(q) ||
+    (item.title_zh || '').includes(q) ||
     (item.summary || '').toLowerCase().includes(q) ||
+    (item.summary_zh || '').includes(q) ||
     (item.raw_text || '').toLowerCase().includes(q)
   )
 })
