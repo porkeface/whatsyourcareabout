@@ -1,0 +1,83 @@
+{
+  "nav": {
+    "today": "今日",
+    "settings": "设置"
+  },
+  "home": {
+    "titleGreeting": "今日",
+    "titleHighlight": "热点摘要",
+    "items": "条",
+    "domains": "个领域",
+    "browse": "浏览",
+    "showing": "显示 {count} / {total} 条",
+    "matching": "匹配 \"{query}\"",
+    "clearSearch": "清除搜索",
+    "clearFilter": "清除筛选",
+    "unableToLoad": "无法加载摘要",
+    "tryAgain": "重试",
+    "noItemsFound": "未找到内容",
+    "noMatchSearchDomain": "没有匹配搜索和领域筛选的内容。",
+    "noMatchSearch": "没有匹配搜索 \"{query}\" 的内容。",
+    "noMatchDomain": "没有匹配所选领域筛选的内容。",
+    "noDigestDate": "该日期暂无摘要。",
+    "todayLabel": "今天"
+  },
+  "detail": {
+    "backToToday": "返回今日",
+    "digestDetail": "摘要详情",
+    "itemsAcrossDomains": "共 {count} 条，涵盖 {domains} 个领域",
+    "showing": "显示 {count} / {total} 条",
+    "clearFilter": "清除筛选",
+    "unableToLoad": "无法加载摘要",
+    "tryAgain": "重试",
+    "goBack": "返回",
+    "noItemsFound": "未找到内容",
+    "noItemsForDomain": "该领域暂无内容"
+  },
+  "card": {
+    "noPreview": "暂无预览"
+  },
+  "filter": {
+    "all": "全部"
+  },
+  "search": {
+    "placeholder": "搜索新闻..."
+  },
+  "settings": {
+    "title": "设置",
+    "subtitle": "配置 WYCA 数据源和偏好",
+    "apiStatus": "API 状态",
+    "connected": "已连接",
+    "disconnected": "未连接",
+    "checking": "检查中...",
+    "version": "版本",
+    "lastRun": "上次运行",
+    "triggerCollection": "触发采集",
+    "triggerDescription": "手动触发一次新的采集任务，从所有已配置的数据源获取最新内容。",
+    "collecting": "采集中...",
+    "startCollection": "开始采集",
+    "sources": "数据源",
+    "items": "条",
+    "active": "正常",
+    "error": "错误",
+    "inactive": "未启用",
+    "unknown": "未知",
+    "apiKeys": "API 密钥",
+    "apiKeysDescription": "API 密钥通过环境变量配置。请联系管理员更新密钥。",
+    "configured": "已配置",
+    "notSet": "未设置",
+    "recentDigests": "近期摘要",
+    "noDigests": "暂无摘要数据。"
+  },
+  "domain": {
+    "ai": "人工智能",
+    "finance": "金融",
+    "academic": "学术",
+    "tech": "科技",
+    "general": "综合",
+    "social": "社交"
+  },
+  "footer": {
+    "tagline": "What's Your Care About?"
+  }
+}

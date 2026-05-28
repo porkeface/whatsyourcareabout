@@ -1,5 +1,9 @@
 <script setup>
 import { computed } from 'vue'
+import { useI18n } from '../composables/useI18n.js'
+import { DOMAIN_META } from '../constants/domains.js'
+
+const { locale, t } = useI18n()
 
 const props = defineProps({
   item: {
@@ -12,17 +16,11 @@ const props = defineProps({
   }
 })
 
-const domainMeta = {
-  ai: { emoji: '\u{1F916}', label: 'AI', color: 'var(--color-domain-ai)' },
-  finance: { emoji: '\u{1F4B0}', label: 'Finance', color: 'var(--color-domain-finance)' },
-  academic: { emoji: '\u{1F4DA}', label: 'Academic', color: 'var(--color-domain-academic)' },
-  tech: { emoji: '\u{1F4BB}', label: 'Tech', color: 'var(--color-domain-tech)' },
-  general: { emoji: '\u{1F4F0}', label: 'General', color: 'var(--color-domain-general)' },
-  social: { emoji: '\u{1F310}', label: 'Social', color: 'var(--color-domain-social)' }
-}
-
 function getDomainInfo(domain) {
-  return domainMeta[domain] || { emoji: '\u{1F4CC}', label: domain || 'Unknown', color: 'var(--color-text-muted)' }
+  const meta = DOMAIN_META[domain]
+  return meta
+    ? { emoji: meta.emoji, color: meta.color }
+    : { emoji: '\u{1F4CC}', color: 'var(--color-text-muted)' }
 }
 
 function getScoreColor(score) {
@@ -34,10 +32,12 @@ function getScoreColor(score) {
 function formatDate(dateStr) {
   if (!dateStr) return ''
   const d = new Date(dateStr)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString(locale.value === 'zh' ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' })
 }
 
 const domain = getDomainInfo(props.item.domain)
+
+const domainLabel = computed(() => t('domain.' + props.item.domain))
 
 function truncateText(text, maxLen) {
   if (!text || text.length <= maxLen) return text
@@ -60,7 +60,7 @@ function truncateText(text, maxLen) {
 
 const displayText = computed(() => {
   const text = props.item.summary || props.item.raw_text || ''
-  if (!text) return 'No preview available'
+  if (!text) return t('card.noPreview')
   return truncateText(text, 200)
 })
 </script>
@@ -104,7 +104,7 @@ const displayText = computed(() => {
           :style="{ '--domain-color': domain.color }"
         >
           <span class="badge-emoji">{{ domain.emoji }}</span>
-          {{ domain.label }}
+          {{ domainLabel }}
         </span>
 
         <!-- Date -->

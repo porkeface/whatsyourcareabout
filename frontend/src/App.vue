@@ -2,6 +2,9 @@
 import { ref, watch, onMounted } from 'vue'
 import { usePreferredDark, useLocalStorage } from '@vueuse/core'
 import NavBar from './components/NavBar.vue'
+import { useI18n } from './composables/useI18n.js'
+
+const { t } = useI18n()
 
 const prefersDark = usePreferredDark()
 const theme = useLocalStorage('wyca-theme', 'dark')
@@ -45,7 +48,7 @@ watch(prefersDark, (isDark) => {
         <p class="footer-text">
           <span class="footer-logo">WYCA</span>
           <span class="footer-separator">&middot;</span>
-          <span>What's Your Care About?</span>
+          <span>{{ t('footer.tagline') }}</span>
           <span class="footer-separator">&middot;</span>
           <span class="footer-status">v1.0</span>
         </p>

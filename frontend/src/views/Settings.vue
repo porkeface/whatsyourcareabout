@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { getHealth, triggerCollect, getDigests } from '../api/client.js'
+import { useI18n } from '../composables/useI18n.js'
+
+const { t } = useI18n()
 
 // State
 const healthStatus = ref(null)
@@ -38,10 +41,10 @@ function getStatusColor(status) {
 
 function getStatusLabel(status) {
   switch (status) {
-    case 'active': return 'Active'
-    case 'error': return 'Error'
-    case 'inactive': return 'Inactive'
-    default: return 'Unknown'
+    case 'active': return t('settings.active')
+    case 'error': return t('settings.error')
+    case 'inactive': return t('settings.inactive')
+    default: return t('settings.unknown')
   }
 }
 
@@ -101,8 +104,8 @@ onMounted(async () => {
   <div class="settings-view">
     <section class="settings-header">
       <div class="container">
-        <h1 class="page-title animate-slide-up">Settings</h1>
-        <p class="page-subtitle">Configure your WYCA digest sources and preferences</p>
+        <h1 class="page-title animate-slide-up">{{ t('settings.title') }}</h1>
+        <p class="page-subtitle">{{ t('settings.subtitle') }}</p>
       </div>
     </section>
 
@@ -115,24 +118,24 @@ onMounted(async () => {
               <path d="M8 0a8 8 0 110 16A8 8 0 018 0zM1.5 8a6.5 6.5 0 1013 0 6.5 6.5 0 00-13 0z"/>
               <path d="M8 4a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 018 4zm0 8a1 1 0 100-2 1 1 0 000 2z"/>
             </svg>
-            API Status
+            {{ t('settings.apiStatus') }}
           </h2>
           <span
             class="status-badge"
             :style="{ color: healthStatus?.status === 'ok' ? 'var(--color-success)' : 'var(--color-warning)' }"
           >
             <span class="status-dot" :style="{ background: healthStatus?.status === 'ok' ? 'var(--color-success)' : 'var(--color-warning)' }"></span>
-            {{ healthStatus?.status === 'ok' ? 'Connected' : healthStatus?.status === 'disconnected' ? 'Disconnected' : 'Checking...' }}
+            {{ healthStatus?.status === 'ok' ? t('settings.connected') : healthStatus?.status === 'disconnected' ? t('settings.disconnected') : t('settings.checking') }}
           </span>
         </div>
         <div class="card-body" v-if="healthStatus">
           <div class="status-grid">
             <div class="status-item">
-              <span class="status-label">Version</span>
+              <span class="status-label">{{ t('settings.version') }}</span>
               <span class="status-value">{{ healthStatus.version || '1.0.0' }}</span>
             </div>
             <div class="status-item">
-              <span class="status-label">Last Run</span>
+              <span class="status-label">{{ t('settings.lastRun') }}</span>
               <span class="status-value">{{ healthStatus.last_run || 'N/A' }}</span>
             </div>
           </div>
@@ -146,12 +149,12 @@ onMounted(async () => {
             <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z"/>
             </svg>
-            Trigger Collection
+            {{ t('settings.triggerCollection') }}
           </h2>
         </div>
         <div class="card-body">
           <p class="card-description">
-            Manually trigger a new collection run to fetch the latest items from all configured sources.
+            {{ t('settings.triggerDescription') }}
           </p>
           <button
             class="collect-btn"
@@ -162,7 +165,7 @@ onMounted(async () => {
               <path d="M8 0a8 8 0 100 16A8 8 0 008 0zm0 2a6 6 0 110 12A6 6 0 018 2z" opacity="0.2"/>
               <path d="M8 0a8 8 0 018 8h-2a6 6 0 00-6-6V0z"/>
             </svg>
-            {{ collecting ? 'Collecting...' : 'Start Collection' }}
+            {{ collecting ? t('settings.collecting') : t('settings.startCollection') }}
           </button>
           <transition name="fade">
             <div
@@ -183,7 +186,7 @@ onMounted(async () => {
             <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
               <path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 110-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5v-9zm10.5-1h-8a1 1 0 00-1 1v6.708A2.486 2.486 0 014.5 9h8V1.5z"/>
             </svg>
-            Sources
+            {{ t('settings.sources') }}
           </h2>
         </div>
         <div class="card-body">
@@ -199,7 +202,7 @@ onMounted(async () => {
               </div>
               <div class="source-meta">
                 <span class="source-items" v-if="source.items > 0">
-                  {{ source.items }} items
+                  {{ source.items }} {{ t('settings.items') }}
                 </span>
                 <span class="source-sync">{{ source.lastSync }}</span>
                 <span
@@ -224,12 +227,12 @@ onMounted(async () => {
               <path d="M0 8a4 4 0 018 0 4 4 0 01-8 0zm4-2.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5zM13.5 8a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
               <path d="M2 13.5V12a2 2 0 012-2h8a2 2 0 012 2v1.5a.5.5 0 01-.5.5h-11a.5.5 0 01-.5-.5z"/>
             </svg>
-            API Keys
+            {{ t('settings.apiKeys') }}
           </h2>
         </div>
         <div class="card-body">
           <p class="card-description muted">
-            API keys are configured via environment variables. Contact your administrator to update keys.
+            {{ t('settings.apiKeysDescription') }}
           </p>
           <div class="keys-list">
             <div
@@ -245,7 +248,7 @@ onMounted(async () => {
                 class="key-status"
                 :class="{ configured: key.configured }"
               >
-                {{ key.configured ? 'Configured' : 'Not set' }}
+                {{ key.configured ? t('settings.configured') : t('settings.notSet') }}
               </span>
             </div>
           </div>
@@ -260,7 +263,7 @@ onMounted(async () => {
               <path d="M2.5 1A1.5 1.5 0 001 2.5v11A1.5 1.5 0 002.5 15h11a1.5 1.5 0 001.5-1.5v-11A1.5 1.5 0 0013.5 1h-11zM2 2.5a.5.5 0 01.5-.5h11a.5.5 0 01.5.5v11a.5.5 0 01-.5.5h-11a.5.5 0 01-.5-.5v-11z"/>
               <path d="M4 5.5a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7a.5.5 0 01-.5-.5zm0 3a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7a.5.5 0 01-.5-.5zm0 3a.5.5 0 01.5-.5h4a.5.5 0 010 1h-4a.5.5 0 01-.5-.5z"/>
             </svg>
-            Recent Digests
+            {{ t('settings.recentDigests') }}
           </h2>
         </div>
         <div class="card-body">
@@ -273,13 +276,13 @@ onMounted(async () => {
               @click.prevent="$router.push(`/digest/${d.date}`)"
             >
               <span class="digest-date">{{ d.date }}</span>
-              <span class="digest-count">{{ d.item_count }} items</span>
+              <span class="digest-count">{{ d.item_count }} {{ t('settings.items') }}</span>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" class="digest-arrow">
                 <path d="M8.22 3.22a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L11.94 8 8.22 4.28a.75.75 0 010-1.06z"/>
               </svg>
             </a>
           </div>
-          <p v-else class="empty-text">No digests available yet.</p>
+          <p v-else class="empty-text">{{ t('settings.noDigests') }}</p>
         </div>
       </section>
     </div>

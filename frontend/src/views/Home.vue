@@ -6,8 +6,11 @@ import SearchBar from '../components/SearchBar.vue'
 import DomainFilter from '../components/DomainFilter.vue'
 import DigestCard from '../components/DigestCard.vue'
 import { getLatestDigest, getDigest, getDigests } from '../api/client.js'
+import { useI18n } from '../composables/useI18n.js'
+import { DOMAIN_META, DOMAIN_ORDER } from '../constants/domains.js'
 
 const router = useRouter()
+const { locale, t } = useI18n()
 
 // State
 const digest = ref(null)
@@ -20,7 +23,7 @@ const selectedDate = ref('')
 const showDatePicker = ref(false)
 
 // Available domains
-const availableDomains = ['ai', 'finance', 'academic', 'tech', 'general', 'social']
+const availableDomains = DOMAIN_ORDER
 
 // Client-side search filtering
 const searchFilteredItems = computed(() => {
@@ -71,19 +74,10 @@ const filteredCount = computed(() => {
   return all.filter(i => i.domain === selectedDomain.value).length
 })
 
-const domainMeta = {
-  ai: { emoji: '\u{1F916}', label: 'AI' },
-  finance: { emoji: '\u{1F4B0}', label: 'Finance' },
-  academic: { emoji: '\u{1F4DA}', label: 'Academic' },
-  tech: { emoji: '\u{1F4BB}', label: 'Tech' },
-  general: { emoji: '\u{1F4F0}', label: 'General' },
-  social: { emoji: '\u{1F310}', label: 'Social' }
-}
-
 function formatDate(dateStr) {
-  if (!dateStr) return 'Today'
+  if (!dateStr) return t('home.todayLabel')
   const d = new Date(dateStr + 'T00:00:00')
-  return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+  return d.toLocaleDateString(locale.value === 'zh' ? 'zh-CN' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 function getTodayStr() {
@@ -177,8 +171,8 @@ onMounted(async () => {
       <div class="container">
         <div class="hero-content animate-slide-up">
           <h1 class="hero-title">
-            <span class="hero-greeting">Today's</span>
-            <span class="hero-highlight">Digest</span>
+            <span class="hero-greeting">{{ t('home.titleGreeting') }}</span>
+            <span class="hero-highlight">{{ t('home.titleHighlight') }}</span>
           </h1>
           <p class="hero-date" v-if="selectedDate">
             {{ formatDate(selectedDate) }}
@@ -186,12 +180,12 @@ onMounted(async () => {
           <div class="hero-stats" v-if="!loading">
             <span class="stat">
               <span class="stat-number">{{ totalItems }}</span>
-              <span class="stat-label">items</span>
+              <span class="stat-label">{{ t('home.items') }}</span>
             </span>
             <span class="stat-separator">&middot;</span>
             <span class="stat">
               <span class="stat-number">{{ Object.keys(groupedItems).length }}</span>
-              <span class="stat-label">domains</span>
+              <span class="stat-label">{{ t('home.domains') }}</span>
             </span>
           </div>
         </div>
@@ -221,7 +215,7 @@ onMounted(async () => {
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
               <path d="M4.75 0a.75.75 0 01.75.75V2h5V.75a.75.75 0 011.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0113.25 16H2.75A1.75 1.75 0 011 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 014.75 0zM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 00.25-.25V7.5H14.5v3.25a.75.75 0 01-1.5 0V7.5H3v3.25a.75.75 0 01-1.5 0V7.5H2.5z"/>
             </svg>
-            Browse
+            {{ t('home.browse') }}
           </button>
           <transition name="dropdown">
             <div v-if="showDatePicker" class="date-dropdown">
@@ -251,14 +245,14 @@ onMounted(async () => {
       <!-- Filter status -->
       <div class="filter-status" v-if="selectedDomain || searchQuery">
         <span class="filter-text">
-          Showing {{ filteredCount }} of {{ totalItems }} items
-          <template v-if="searchQuery">matching "{{ searchQuery }}"</template>
+          {{ t('home.showing', { count: filteredCount, total: totalItems }) }}
+          <template v-if="searchQuery">{{ t('home.matching', { query: searchQuery }) }}</template>
         </span>
         <button v-if="searchQuery" class="clear-filter" @click="searchQuery = ''">
-          Clear search
+          {{ t('home.clearSearch') }}
         </button>
         <button v-if="selectedDomain" class="clear-filter" @click="selectedDomain = null">
-          Clear filter
+          {{ t('home.clearFilter') }}
         </button>
       </div>
     </section>
@@ -282,9 +276,9 @@ onMounted(async () => {
     <section v-else-if="error" class="error-section container">
       <div class="error-card">
         <div class="error-icon">!</div>
-        <h3>Unable to load digest</h3>
+        <h3>{{ t('home.unableToLoad') }}</h3>
         <p>{{ error }}</p>
-        <button class="retry-btn" @click="loadDigest()">Try again</button>
+        <button class="retry-btn" @click="loadDigest()">{{ t('home.tryAgain') }}</button>
       </div>
     </section>
 
@@ -293,8 +287,8 @@ onMounted(async () => {
       <!-- Domain Groups -->
       <div v-for="(items, domain) in groupedItems" :key="domain" class="domain-group">
         <div class="domain-header">
-          <span class="domain-emoji">{{ domainMeta[domain]?.emoji }}</span>
-          <h2 class="domain-title">{{ domainMeta[domain]?.label || domain }}</h2>
+          <span class="domain-emoji">{{ DOMAIN_META[domain]?.emoji }}</span>
+          <h2 class="domain-title">{{ t('domain.' + domain) }}</h2>
           <span class="domain-count">{{ items.length }}</span>
         </div>
         <div class="items-list">
@@ -314,11 +308,11 @@ onMounted(async () => {
             <path d="M8 0a8 8 0 110 16A8 8 0 018 0zM1.5 8a6.5 6.5 0 1013 0 6.5 6.5 0 00-13 0zm7.25-3.25v2.992l2.028.812a.75.75 0 01-.557 1.392l-2.5-1A.75.75 0 017.25 8.25v-3.5a.75.75 0 011.5 0z"/>
           </svg>
         </div>
-        <h3>No items found</h3>
-        <p v-if="searchQuery && selectedDomain">No items match your search and domain filter.</p>
-        <p v-else-if="searchQuery">No items match your search for "{{ searchQuery }}".</p>
-        <p v-else-if="selectedDomain">No items match the selected domain filter.</p>
-        <p v-else>No digest available for this date.</p>
+        <h3>{{ t('home.noItemsFound') }}</h3>
+        <p v-if="searchQuery && selectedDomain">{{ t('home.noMatchSearchDomain') }}</p>
+        <p v-else-if="searchQuery">{{ t('home.noMatchSearch', { query: searchQuery }) }}</p>
+        <p v-else-if="selectedDomain">{{ t('home.noMatchDomain') }}</p>
+        <p v-else>{{ t('home.noDigestDate') }}</p>
       </div>
     </section>
   </div>

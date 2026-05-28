@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from '../composables/useI18n.js'
 
 defineProps({
   theme: {
@@ -12,6 +13,11 @@ defineProps({
 const emit = defineEmits(['toggle-theme'])
 const router = useRouter()
 const mobileMenuOpen = ref(false)
+const { locale, localeLabel, setLocale, t } = useI18n()
+
+function toggleLocale() {
+  setLocale(locale.value === 'en' ? 'zh' : 'en')
+}
 
 function navigate(path) {
   router.push(path)
@@ -41,7 +47,7 @@ function navigate(path) {
               <path d="M8 1.5l6 5v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1V6.5l6-5zm0 1.2L3 6.5V14h10V6.5L8 2.7z"/>
             </svg>
           </span>
-          Today
+          {{ t('nav.today') }}
         </a>
         <a
           href="/settings"
@@ -55,12 +61,20 @@ function navigate(path) {
               <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 01-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 01-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 01.52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 011.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 011.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 01.52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 01-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 01-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 002.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 001.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 00-1.115 2.693l.16.291c.415.764-.421 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 00-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 00-2.692-1.115l-.292.16c-.764.415-1.6-.421-1.184-1.185l.159-.291A1.873 1.873 0 001.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 003.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 002.692-1.115l.094-.319z"/>
             </svg>
           </span>
-          Settings
+          {{ t('nav.settings') }}
         </a>
       </nav>
 
       <!-- Actions -->
       <div class="navbar-actions">
+        <button
+          class="locale-toggle"
+          @click="toggleLocale"
+          :aria-label="localeLabel"
+          :title="localeLabel"
+        >
+          {{ localeLabel }}
+        </button>
         <button
           class="theme-toggle"
           @click="emit('toggle-theme')"
@@ -102,7 +116,7 @@ function navigate(path) {
             :class="{ active: router.currentRoute.value.path === '/' }"
             @click.prevent="navigate('/')"
           >
-            Today
+            {{ t('nav.today') }}
           </a>
           <a
             href="/settings"
@@ -110,7 +124,7 @@ function navigate(path) {
             :class="{ active: router.currentRoute.value.path === '/settings' }"
             @click.prevent="navigate('/settings')"
           >
-            Settings
+            {{ t('nav.settings') }}
           </a>
         </nav>
       </transition>
@@ -251,6 +265,27 @@ function navigate(path) {
 
 .theme-toggle:hover .theme-icon {
   transform: rotate(15deg);
+}
+
+/* Locale Toggle */
+.locale-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.locale-toggle:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
 }
 
 /* Mobile */

@@ -1,4 +1,9 @@
 <script setup>
+import { useI18n } from '../composables/useI18n.js'
+import { DOMAIN_META } from '../constants/domains.js'
+
+const { t } = useI18n()
+
 const props = defineProps({
   domains: {
     type: Array,
@@ -12,17 +17,8 @@ const props = defineProps({
 
 const emit = defineEmits(['domain-select'])
 
-const domainMeta = {
-  ai: { emoji: '\u{1F916}', label: 'AI', color: 'var(--color-domain-ai)' },
-  finance: { emoji: '\u{1F4B0}', label: 'Finance', color: 'var(--color-domain-finance)' },
-  academic: { emoji: '\u{1F4DA}', label: 'Academic', color: 'var(--color-domain-academic)' },
-  tech: { emoji: '\u{1F4BB}', label: 'Tech', color: 'var(--color-domain-tech)' },
-  general: { emoji: '\u{1F4F0}', label: 'General', color: 'var(--color-domain-general)' },
-  social: { emoji: '\u{1F310}', label: 'Social', color: 'var(--color-domain-social)' }
-}
-
 function getDomainMeta(domain) {
-  return domainMeta[domain] || { emoji: '\u{1F4CC}', label: domain, color: 'var(--color-text-muted)' }
+  return DOMAIN_META[domain] || { emoji: '\u{1F4CC}', color: 'var(--color-text-muted)' }
 }
 
 function select(domain) {
@@ -37,7 +33,7 @@ function select(domain) {
       :class="{ active: !selectedDomain }"
       @click="emit('domain-select', null)"
     >
-      <span class="chip-emoji">All</span>
+      <span class="chip-emoji">{{ t('filter.all') }}</span>
     </button>
     <button
       v-for="domain in domains"
@@ -48,7 +44,7 @@ function select(domain) {
       @click="select(domain)"
     >
       <span class="chip-emoji">{{ getDomainMeta(domain).emoji }}</span>
-      <span class="chip-label">{{ getDomainMeta(domain).label }}</span>
+      <span class="chip-label">{{ t('domain.' + domain) }}</span>
     </button>
   </div>
 </template>

@@ -1,5 +1,8 @@
 <script setup>
 import { ref, watch, onUnmounted } from 'vue'
+import { useI18n } from '../composables/useI18n.js'
+
+const { t } = useI18n()
 
 const props = defineProps({
   modelValue: { type: String, default: '' }
@@ -42,8 +45,8 @@ onUnmounted(() => {
       type="text"
       class="search-input"
       :value="localValue"
-      placeholder="Search news..."
-      aria-label="Search news"
+      :placeholder="t('search.placeholder')"
+      :aria-label="t('search.placeholder')"
       @input="onInput"
     />
     <button

@@ -4,9 +4,12 @@ import { useRoute, useRouter } from 'vue-router'
 import DomainFilter from '../components/DomainFilter.vue'
 import DigestCard from '../components/DigestCard.vue'
 import { getDigest } from '../api/client.js'
+import { useI18n } from '../composables/useI18n.js'
+import { DOMAIN_META, DOMAIN_ORDER } from '../constants/domains.js'
 
 const route = useRoute()
 const router = useRouter()
+const { locale, t } = useI18n()
 
 const props = defineProps({
   date: String
@@ -18,7 +21,7 @@ const selectedDomain = ref(null)
 const loading = ref(true)
 const error = ref(null)
 
-const availableDomains = ['ai', 'finance', 'academic', 'tech', 'general', 'social']
+const availableDomains = DOMAIN_ORDER
 
 const groupedItems = computed(() => {
   if (!digest.value?.items) return {}
@@ -53,19 +56,10 @@ const filteredCount = computed(() => {
   return digest.value?.items?.filter(i => i.domain === selectedDomain.value).length || 0
 })
 
-const domainMeta = {
-  ai: { emoji: '\u{1F916}', label: 'AI' },
-  finance: { emoji: '\u{1F4B0}', label: 'Finance' },
-  academic: { emoji: '\u{1F4DA}', label: 'Academic' },
-  tech: { emoji: '\u{1F4BB}', label: 'Tech' },
-  general: { emoji: '\u{1F4F0}', label: 'General' },
-  social: { emoji: '\u{1F310}', label: 'Social' }
-}
-
 function formatDate(dateStr) {
   if (!dateStr) return ''
   const d = new Date(dateStr + 'T00:00:00')
-  return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+  return d.toLocaleDateString(locale.value === 'zh' ? 'zh-CN' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 async function loadDigest(date) {
@@ -107,16 +101,16 @@ watch(() => route.params.date, (newDate) => {
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
             <path d="M7.78 12.53a.75.75 0 01-1.06 0L2.47 8.28a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 1.06L4.81 7h7.44a.75.75 0 010 1.5H4.81l2.97 2.97a.75.75 0 010 1.06z"/>
           </svg>
-          Back to Today
+          {{ t('detail.backToToday') }}
         </button>
 
         <div class="detail-content animate-slide-up">
           <h1 class="detail-title">
             <span class="title-date" v-if="date">{{ formatDate(date) }}</span>
-            <span class="title-fallback" v-else>Digest Detail</span>
+            <span class="title-fallback" v-else>{{ t('detail.digestDetail') }}</span>
           </h1>
           <p class="detail-subtitle" v-if="!loading && digest">
-            {{ totalItems }} items across {{ Object.keys(groupedItems).length }} domains
+            {{ t('detail.itemsAcrossDomains', { count: totalItems, domains: Object.keys(groupedItems).length }) }}
           </p>
         </div>
       </div>
@@ -131,10 +125,10 @@ watch(() => route.params.date, (newDate) => {
       />
       <div class="filter-status" v-if="selectedDomain">
         <span class="filter-text">
-          Showing {{ filteredCount }} of {{ totalItems }} items
+          {{ t('detail.showing', { count: filteredCount, total: totalItems }) }}
         </span>
         <button class="clear-filter" @click="selectedDomain = null">
-          Clear filter
+          {{ t('detail.clearFilter') }}
         </button>
       </div>
     </section>
@@ -157,11 +151,11 @@ watch(() => route.params.date, (newDate) => {
     <section v-else-if="error" class="error-section container">
       <div class="error-card">
         <div class="error-icon">!</div>
-        <h3>Unable to load digest</h3>
+        <h3>{{ t('detail.unableToLoad') }}</h3>
         <p>{{ error }}</p>
         <div class="error-actions">
-          <button class="retry-btn" @click="loadDigest(date)">Try again</button>
-          <button class="back-btn-secondary" @click="goBack">Go back</button>
+          <button class="retry-btn" @click="loadDigest(date)">{{ t('detail.tryAgain') }}</button>
+          <button class="back-btn-secondary" @click="goBack">{{ t('detail.goBack') }}</button>
         </div>
       </div>
     </section>
@@ -170,8 +164,8 @@ watch(() => route.params.date, (newDate) => {
     <section v-else class="content-section container">
       <div v-for="(items, domain) in groupedItems" :key="domain" class="domain-group">
         <div class="domain-header">
-          <span class="domain-emoji">{{ domainMeta[domain]?.emoji }}</span>
-          <h2 class="domain-title">{{ domainMeta[domain]?.label || domain }}</h2>
+          <span class="domain-emoji">{{ DOMAIN_META[domain]?.emoji }}</span>
+          <h2 class="domain-title">{{ t('domain.' + domain) }}</h2>
           <span class="domain-count">{{ items.length }}</span>
         </div>
         <div class="items-list">
@@ -185,7 +179,7 @@ watch(() => route.params.date, (newDate) => {
       </div>
 
       <div v-if="Object.keys(groupedItems).length === 0 && !loading" class="empty-state">
-        <p>No items found{{ selectedDomain ? ' for this domain' : '' }}.</p>
+        <p>{{ t('detail.noItemsFound') }}{{ selectedDomain ? t('detail.noItemsForDomain') : '' }}</p>
       </div>
     </section>
   </div>

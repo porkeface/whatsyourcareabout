@@ -1,0 +1,83 @@
+{
+  "nav": {
+    "today": "Today",
+    "settings": "Settings"
+  },
+  "home": {
+    "titleGreeting": "Today's",
+    "titleHighlight": "Digest",
+    "items": "items",
+    "domains": "domains",
+    "browse": "Browse",
+    "showing": "Showing {count} of {total} items",
+    "matching": "matching \"{query}\"",
+    "clearSearch": "Clear search",
+    "clearFilter": "Clear filter",
+    "unableToLoad": "Unable to load digest",
+    "tryAgain": "Try again",
+    "noItemsFound": "No items found",
+    "noMatchSearchDomain": "No items match your search and domain filter.",
+    "noMatchSearch": "No items match your search for \"{query}\".",
+    "noMatchDomain": "No items match the selected domain filter.",
+    "noDigestDate": "No digest available for this date.",
+    "todayLabel": "Today"
+  },
+  "detail": {
+    "backToToday": "Back to Today",
+    "digestDetail": "Digest Detail",
+    "itemsAcrossDomains": "{count} items across {domains} domains",
+    "showing": "Showing {count} of {total} items",
+    "clearFilter": "Clear filter",
+    "unableToLoad": "Unable to load digest",
+    "tryAgain": "Try again",
+    "goBack": "Go back",
+    "noItemsFound": "No items found",
+    "noItemsForDomain": " for this domain"
+  },
+  "card": {
+    "noPreview": "No preview available"
+  },
+  "filter": {
+    "all": "All"
+  },
+  "search": {
+    "placeholder": "Search news..."
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Configure your WYCA digest sources and preferences",
+    "apiStatus": "API Status",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "checking": "Checking...",
+    "version": "Version",
+    "lastRun": "Last Run",
+    "triggerCollection": "Trigger Collection",
+    "triggerDescription": "Manually trigger a new collection run to fetch the latest items from all configured sources.",
+    "collecting": "Collecting...",
+    "startCollection": "Start Collection",
+    "sources": "Sources",
+    "items": "items",
+    "active": "Active",
+    "error": "Error",
+    "inactive": "Inactive",
+    "unknown": "Unknown",
+    "apiKeys": "API Keys",
+    "apiKeysDescription": "API keys are configured via environment variables. Contact your administrator to update keys.",
+    "configured": "Configured",
+    "notSet": "Not set",
+    "recentDigests": "Recent Digests",
+    "noDigests": "No digests available yet."
+  },
+  "domain": {
+    "ai": "AI",
+    "finance": "Finance",
+    "academic": "Academic",
+    "tech": "Tech",
+    "general": "General",
+    "social": "Social"
+  },
+  "footer": {
+    "tagline": "What's Your Care About?"
+  }
+}
