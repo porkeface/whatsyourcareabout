@@ -128,7 +128,7 @@ def get_items_since(since: datetime, conn: sqlite3.Connection) -> list[Item]:
 
 def get_recent_items(hours: int = 24, conn: sqlite3.Connection | None = None) -> list[Item]:
     from datetime import timedelta
-    since = datetime.utcnow() - timedelta(hours=hours)
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
     own_conn = conn is None
     if own_conn:
         conn = get_connection()

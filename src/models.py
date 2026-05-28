@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
 
 @dataclass
@@ -15,7 +15,7 @@ class Item:
     summary: str = ""
     lang: str = "en"
     published_at: datetime | None = None
-    collected_at: datetime = field(default_factory=datetime.utcnow)
+    collected_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def url_hash(self) -> str:
