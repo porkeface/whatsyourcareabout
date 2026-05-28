@@ -87,8 +87,8 @@ const domain = getDomainInfo(props.item.domain)
       </div>
 
       <!-- Summary -->
-      <p class="card-summary" v-if="item.summary || item.description">
-        {{ item.summary || item.description }}
+      <p class="card-summary" v-if="item.summary || item.raw_text">
+        {{ item.summary || item.raw_text }}
       </p>
 
       <!-- Tags -->

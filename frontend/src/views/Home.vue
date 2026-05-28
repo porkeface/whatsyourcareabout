@@ -2,9 +2,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePreferredDark, useLocalStorage } from '@vueuse/core'
+import SearchBar from '../components/SearchBar.vue'
 import DomainFilter from '../components/DomainFilter.vue'
 import DigestCard from '../components/DigestCard.vue'
-import { getLatestDigest, getDigests } from '../api/client.js'
+import { getLatestDigest, getDigest, getDigests } from '../api/client.js'
 
 const router = useRouter()
 
@@ -12,6 +13,7 @@ const router = useRouter()
 const digest = ref(null)
 const digests = ref([])
 const selectedDomain = ref(null)
+const searchQuery = ref('')
 const loading = ref(true)
 const error = ref(null)
 const selectedDate = ref('')
@@ -20,13 +22,26 @@ const showDatePicker = ref(false)
 // Available domains
 const availableDomains = ['ai', 'finance', 'academic', 'tech', 'general', 'social']
 
+// Client-side search filtering
+const searchFilteredItems = computed(() => {
+  if (!digest.value?.items) return []
+  if (!searchQuery.value) return digest.value.items
+
+  const q = searchQuery.value.toLowerCase()
+  return digest.value.items.filter(item =>
+    item.title.toLowerCase().includes(q) ||
+    (item.summary || '').toLowerCase().includes(q) ||
+    (item.raw_text || '').toLowerCase().includes(q)
+  )
+})
+
 // Grouped items by domain
 const groupedItems = computed(() => {
-  if (!digest.value?.items) return {}
+  const base = searchFilteredItems.value
 
   const filtered = selectedDomain.value
-    ? digest.value.items.filter(item => item.domain === selectedDomain.value)
-    : digest.value.items
+    ? base.filter(item => item.domain === selectedDomain.value)
+    : base
 
   const groups = {}
   const domainOrder = ['ai', 'finance', 'academic', 'tech', 'general', 'social']
@@ -51,8 +66,9 @@ const groupedItems = computed(() => {
 
 const totalItems = computed(() => digest.value?.items?.length || 0)
 const filteredCount = computed(() => {
-  if (!selectedDomain.value) return totalItems.value
-  return digest.value?.items?.filter(i => i.domain === selectedDomain.value).length || 0
+  const all = searchFilteredItems.value
+  if (!selectedDomain.value) return all.length
+  return all.filter(i => i.domain === selectedDomain.value).length
 })
 
 const domainMeta = {
@@ -184,6 +200,9 @@ onMounted(async () => {
 
     <!-- Controls -->
     <section class="controls-section container">
+      <!-- Search -->
+      <SearchBar v-model="searchQuery" />
+
       <div class="controls-row">
         <!-- Domain Filter -->
         <DomainFilter
@@ -230,11 +249,15 @@ onMounted(async () => {
       </div>
 
       <!-- Filter status -->
-      <div class="filter-status" v-if="selectedDomain">
+      <div class="filter-status" v-if="selectedDomain || searchQuery">
         <span class="filter-text">
           Showing {{ filteredCount }} of {{ totalItems }} items
+          <template v-if="searchQuery">matching "{{ searchQuery }}"</template>
         </span>
-        <button class="clear-filter" @click="selectedDomain = null">
+        <button v-if="searchQuery" class="clear-filter" @click="searchQuery = ''">
+          Clear search
+        </button>
+        <button v-if="selectedDomain" class="clear-filter" @click="selectedDomain = null">
           Clear filter
         </button>
       </div>
@@ -292,7 +315,9 @@ onMounted(async () => {
           </svg>
         </div>
         <h3>No items found</h3>
-        <p v-if="selectedDomain">No items match the selected domain filter.</p>
+        <p v-if="searchQuery && selectedDomain">No items match your search and domain filter.</p>
+        <p v-else-if="searchQuery">No items match your search for "{{ searchQuery }}".</p>
+        <p v-else-if="selectedDomain">No items match the selected domain filter.</p>
         <p v-else>No digest available for this date.</p>
       </div>
     </section>
@@ -375,6 +400,9 @@ onMounted(async () => {
 .controls-section {
   padding-top: var(--space-6);
   padding-bottom: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .controls-row {

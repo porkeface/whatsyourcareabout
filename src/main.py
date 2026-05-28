@@ -14,7 +14,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from src.config import load_config
-from src.database import get_connection, get_recent_items, init_db, insert_items
+from src.database import (
+    get_connection,
+    get_recent_items,
+    get_summaries_by_urls,
+    init_db,
+    insert_items,
+)
 from src.models import DailyDigest
 from src.output.html_renderer import render_html
 from src.output.markdown_renderer import render_markdown
@@ -162,6 +168,18 @@ async def run_daily_digest(config: dict, date_override: str | None = None) -> No
         logger.error("Dedup failed: %s", exc)
         deduped = recent_items
 
+    # 5.5. Enrich items with missing descriptions
+    try:
+        from src.processing.enrichment import enrich_items
+
+        proxy = config.get("proxy")
+        deduped = await enrich_items(deduped, proxy=proxy)
+        logger.info("Enrichment complete")
+    except ImportError:
+        logger.warning("Enrichment module not available, skipping")
+    except Exception as exc:
+        logger.error("Enrichment failed: %s", exc)
+
     # 6. Rank
     try:
         from src.processing.ranker import rank_items
@@ -194,6 +212,10 @@ async def run_daily_digest(config: dict, date_override: str | None = None) -> No
             logger.warning("Summarizer module not available, skipping")
         except Exception as exc:
             logger.error("AI summarization failed: %s", exc)
+
+    # 7.6. Persist summaries to DB (load any DB-cached summaries into digest)
+    digest = _load_summaries_from_db(digest)
+    logger.info("Summary persistence step complete")
 
     # 8. Render and save outputs
     output_config = config.get("output", {})
@@ -236,6 +258,53 @@ async def run_daily_digest(config: dict, date_override: str | None = None) -> No
                 logger.error("Telegram push had failures")
 
     logger.info("Daily digest pipeline complete for %s", date_str)
+
+
+def _load_summaries_from_db(digest: DailyDigest) -> DailyDigest:
+    """Load persisted summaries from SQLite for items missing summaries.
+
+    After the summarizer runs, some items may have summaries in the DB
+    (from a previous run) that were not in the in-memory cache. This
+    function loads those and merges them into the digest using immutable
+    replacement.
+    """
+    from dataclasses import replace
+
+    items_without_summary = [item for item in digest.items if not item.summary]
+    if not items_without_summary:
+        return digest
+
+    urls = [item.url for item in items_without_summary]
+    try:
+        conn = get_connection()
+        try:
+            url_summaries = get_summaries_by_urls(urls, conn)
+        finally:
+            conn.close()
+    except Exception:
+        logger.error("Failed to load summaries from DB", exc_info=True)
+        return digest
+
+    if not url_summaries:
+        return digest
+
+    updated_items: list[Item] = []
+    loaded_count = 0
+    for item in digest.items:
+        if not item.summary and item.url in url_summaries:
+            updated_items.append(replace(item, summary=url_summaries[item.url]))
+            loaded_count += 1
+        else:
+            updated_items.append(item)
+
+    if loaded_count:
+        logger.info("Loaded %d summaries from SQLite into digest", loaded_count)
+
+    return DailyDigest(
+        date=digest.date,
+        items=updated_items,
+        item_count=len(updated_items),
+    )
 
 
 def _build_plain_summary(digest: DailyDigest) -> str:

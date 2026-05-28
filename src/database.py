@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 
 from src.models import Item
+
+logger = logging.getLogger(__name__)
 
 DB_PATH = "data/wyca.db"
 
@@ -35,6 +38,7 @@ CREATE TABLE IF NOT EXISTS daily_digests (
 CREATE INDEX IF NOT EXISTS idx_items_collected ON items(collected_at);
 CREATE INDEX IF NOT EXISTS idx_items_domain ON items(domain);
 CREATE INDEX IF NOT EXISTS idx_items_source ON items(source);
+CREATE INDEX IF NOT EXISTS idx_items_url ON items(url);
 """
 
 
@@ -63,7 +67,6 @@ def insert_item(item: Item, conn: sqlite3.Connection) -> bool:
                 item.published_at, item.collected_at,
             ),
         )
-        conn.commit()
         return True
     except sqlite3.IntegrityError:
         return False
@@ -74,6 +77,7 @@ def insert_items(items: list[Item], conn: sqlite3.Connection) -> int:
     for item in items:
         if insert_item(item, conn):
             count += 1
+    conn.commit()
     return count
 
 
@@ -111,3 +115,63 @@ def get_recent_items(hours: int = 24, conn: sqlite3.Connection | None = None) ->
     finally:
         if own_conn:
             conn.close()
+
+
+def update_item_summary(url: str, summary: str, conn: sqlite3.Connection) -> bool:
+    """Update the summary field for an item by URL. Returns True if updated."""
+    try:
+        cursor = conn.execute(
+            "UPDATE items SET summary = ? WHERE url = ? AND (summary IS NULL OR summary = '')",
+            (summary, url),
+        )
+        updated = cursor.rowcount > 0
+        if updated:
+            logger.debug("Persisted summary for %s", url)
+        return updated
+    except sqlite3.Error:
+        logger.error("Failed to update summary for url=%s", url, exc_info=True)
+        return False
+
+
+def get_items_needing_summary(conn: sqlite3.Connection) -> list[str]:
+    """Get URLs of items that have no summary yet. Returns list of URLs."""
+    try:
+        cursor = conn.execute(
+            "SELECT url FROM items WHERE summary IS NULL OR summary = ''"
+        )
+        rows = cursor.fetchall()
+        return [row["url"] for row in rows]
+    except sqlite3.Error:
+        logger.error("Failed to fetch items needing summary", exc_info=True)
+        return []
+
+
+def get_summary_by_url(url: str, conn: sqlite3.Connection) -> str | None:
+    """Get cached summary for a URL. Returns None if not found."""
+    try:
+        cursor = conn.execute(
+            "SELECT summary FROM items WHERE url = ? AND summary IS NOT NULL AND summary != ''",
+            (url,),
+        )
+        row = cursor.fetchone()
+        return row["summary"] if row else None
+    except sqlite3.Error:
+        logger.error("Failed to get summary for url=%s", url, exc_info=True)
+        return None
+
+
+def get_summaries_by_urls(urls: list[str], conn: sqlite3.Connection) -> dict[str, str]:
+    """Bulk-fetch summaries for a list of URLs. Returns url->summary mapping."""
+    if not urls:
+        return {}
+    try:
+        placeholders = ",".join("?" for _ in urls)
+        cursor = conn.execute(
+            f"SELECT url, summary FROM items WHERE url IN ({placeholders}) "
+            "AND summary IS NOT NULL AND summary != ''",
+            urls,
+        )
+        return {row["url"]: row["summary"] for row in cursor.fetchall()}
+    except sqlite3.Error:
+        logger.error("Failed to bulk-fetch summaries", exc_info=True)
+        return {}

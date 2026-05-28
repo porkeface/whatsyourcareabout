@@ -34,13 +34,13 @@ sources:
     max_items: 20
   newsapi:
     enabled: true
-    weight: 1.0
+    weight: 0.6
     api_key: "${NEWSAPI_KEY}"
     queries: ["artificial intelligence", "stock market", "technology"]
     max_items: 20
   finnhub:
     enabled: true
-    weight: 1.0
+    weight: 0.6
     api_key: "${FINNHUB_KEY}"
     max_items: 15
   rsshub:
