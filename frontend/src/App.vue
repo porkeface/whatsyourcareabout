@@ -4,7 +4,7 @@ import { usePreferredDark, useLocalStorage } from '@vueuse/core'
 import NavBar from './components/NavBar.vue'
 import { useI18n } from './composables/useI18n.js'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const prefersDark = usePreferredDark()
 const theme = useLocalStorage('wyca-theme', 'dark')
@@ -24,6 +24,11 @@ function toggleTheme() {
 
 onMounted(() => {
   applyTheme(theme.value)
+  document.documentElement.lang = locale.value === 'zh' ? 'zh-CN' : 'en'
+})
+
+watch(locale, (newLocale) => {
+  document.documentElement.lang = newLocale === 'zh' ? 'zh-CN' : 'en'
 })
 
 watch(prefersDark, (isDark) => {

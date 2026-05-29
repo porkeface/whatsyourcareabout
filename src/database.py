@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from src.models import Item
+from src.utils import parse_date_flexible
 
 logger = logging.getLogger(__name__)
 
@@ -28,15 +29,6 @@ CREATE TABLE IF NOT EXISTS items (
     collected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS daily_digests (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date DATE UNIQUE NOT NULL,
-    rendered_md TEXT,
-    rendered_html TEXT,
-    item_count INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE INDEX IF NOT EXISTS idx_items_collected ON items(collected_at);
 CREATE INDEX IF NOT EXISTS idx_items_domain ON items(domain);
 CREATE INDEX IF NOT EXISTS idx_items_source ON items(source);
@@ -48,6 +40,7 @@ def get_connection(db_path: str = DB_PATH) -> sqlite3.Connection:
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
 
@@ -95,30 +88,16 @@ def insert_items(items: list[Item], conn: sqlite3.Connection) -> int:
 
 def _parse_timestamp(value: str | None) -> datetime | None:
     """Parse a SQLite timestamp string into a timezone-aware datetime."""
-    if not value:
-        return None
-    if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-    for fmt in (
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%dT%H:%M:%SZ",
-        "%Y-%m-%dT%H:%M:%S%z",
-    ):
-        try:
-            dt = datetime.strptime(value, fmt)
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt
-        except ValueError:
-            continue
-    return None
+    return parse_date_flexible(value)
+
+
+_MAX_ITEMS_QUERY = 5000
 
 
 def get_items_since(since: datetime, conn: sqlite3.Connection) -> list[Item]:
     cursor = conn.execute(
-        "SELECT * FROM items WHERE collected_at >= ? ORDER BY score DESC",
-        (since.isoformat(),),
+        "SELECT * FROM items WHERE collected_at >= ? ORDER BY score DESC LIMIT ?",
+        (since.isoformat(), _MAX_ITEMS_QUERY),
     )
     rows = cursor.fetchall()
     return [
@@ -193,7 +172,8 @@ def get_items_needing_summary(conn: sqlite3.Connection) -> list[str]:
     """Get URLs of items that have no summary yet. Returns list of URLs."""
     try:
         cursor = conn.execute(
-            "SELECT url FROM items WHERE summary IS NULL OR summary = ''"
+            "SELECT url FROM items WHERE summary IS NULL OR summary = '' LIMIT ?",
+            (_MAX_ITEMS_QUERY,),
         )
         rows = cursor.fetchall()
         return [row["url"] for row in rows]

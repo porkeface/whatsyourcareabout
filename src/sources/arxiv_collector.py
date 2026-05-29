@@ -7,7 +7,7 @@ from src.sources.base import BaseCollector
 
 logger = logging.getLogger(__name__)
 
-ARXIV_API_URL = "http://export.arxiv.org/api/query"
+ARXIV_API_URL = "https://export.arxiv.org/api/query"
 ATOM_NS = "http://www.w3.org/2005/Atom"
 
 

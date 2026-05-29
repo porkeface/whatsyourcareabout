@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 
@@ -6,11 +7,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 
 def _expand_env(value: str) -> str:
     if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
         env_key = value[2:-1]
-        return os.environ.get(env_key, "")
+        env_val = os.environ.get(env_key)
+        if env_val is None:
+            logger.warning("Environment variable %s is not set", env_key)
+            return ""
+        return env_val
     return value
 
 

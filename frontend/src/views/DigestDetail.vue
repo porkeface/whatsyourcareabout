@@ -31,7 +31,6 @@ const groupedItems = computed(() => {
     : digest.value.items
 
   const groups = {}
-  const domainOrder = ['ai', 'finance', 'academic', 'tech', 'general', 'social']
 
   for (const item of filtered) {
     const domain = item.domain || 'general'
@@ -42,8 +41,13 @@ const groupedItems = computed(() => {
   }
 
   const sorted = {}
-  for (const d of domainOrder) {
+  for (const d of DOMAIN_ORDER) {
     if (groups[d]) {
+      sorted[d] = groups[d]
+    }
+  }
+  for (const d of Object.keys(groups)) {
+    if (!sorted[d]) {
       sorted[d] = groups[d]
     }
   }

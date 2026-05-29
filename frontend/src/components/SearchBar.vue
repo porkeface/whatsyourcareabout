@@ -53,7 +53,7 @@ onUnmounted(() => {
       v-if="localValue"
       class="clear-btn"
       type="button"
-      aria-label="Clear search"
+      :aria-label="t('search.clearSearch')"
       @click="clear"
     >
       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">

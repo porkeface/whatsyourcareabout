@@ -35,7 +35,16 @@ function formatDate(dateStr) {
   return d.toLocaleDateString(locale.value === 'zh' ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' })
 }
 
-const domain = getDomainInfo(props.item.domain)
+function isSafeUrl(url) {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+const domain = computed(() => getDomainInfo(props.item.domain))
 
 const domainLabel = computed(() => t('domain.' + props.item.domain))
 
@@ -81,6 +90,7 @@ const displayText = computed(() => {
       <!-- Title -->
       <h3 class="card-title">
         <a
+          v-if="isSafeUrl(item.url)"
           :href="item.url"
           target="_blank"
           rel="noopener noreferrer"
@@ -91,6 +101,7 @@ const displayText = computed(() => {
             <path d="M3.75 2h3.5a.75.75 0 010 1.5H4.5v8h8V8.75a.75.75 0 011.5 0v3.5A1.75 1.75 0 0112.25 14h-8.5A1.75 1.75 0 012 12.25v-8.5C2 2.784 2.784 2 3.75 2zm6.72.72l3 3a.75.75 0 010 1.06l-3 3a.75.75 0 11-1.06-1.06l1.72-1.72H7a.75.75 0 010-1.5h4.13L9.41 3.78a.75.75 0 011.06-1.06z"/>
           </svg>
         </a>
+        <span v-else class="title-link">{{ item.title_zh || item.title }}</span>
       </h3>
 
       <!-- Meta row -->

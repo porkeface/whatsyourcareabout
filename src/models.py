@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Item:
     title: str
     url: str
@@ -18,11 +19,11 @@ class Item:
     lang: str = "en"
     published_at: datetime | None = None
     collected_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    url_hash: str = field(init=False, repr=False)
 
-    @property
-    def url_hash(self) -> str:
-        import hashlib
-        return hashlib.sha256(self.url.encode()).hexdigest()[:16]
+    def __post_init__(self) -> None:
+        # Compute url_hash once and store it (frozen dataclass uses object.__setattr__)
+        object.__setattr__(self, "url_hash", hashlib.sha256(self.url.encode()).hexdigest()[:16])
 
 
 @dataclass

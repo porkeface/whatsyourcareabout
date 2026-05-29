@@ -41,7 +41,8 @@
     "all": "All"
   },
   "search": {
-    "placeholder": "Search news..."
+    "placeholder": "Search news...",
+    "clearSearch": "Clear search"
   },
   "settings": {
     "title": "Settings",
@@ -79,5 +80,11 @@
   },
   "footer": {
     "tagline": "What's Your Care About?"
+  },
+  "theme": {
+    "switchToLight": "Switch to light mode",
+    "switchToDark": "Switch to dark mode",
+    "lightMode": "Light mode",
+    "darkMode": "Dark mode"
   }
 }

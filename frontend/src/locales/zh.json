@@ -41,7 +41,8 @@
     "all": "全部"
   },
   "search": {
-    "placeholder": "搜索新闻..."
+    "placeholder": "搜索新闻...",
+    "clearSearch": "清除搜索"
   },
   "settings": {
     "title": "设置",
@@ -78,6 +79,12 @@
     "social": "社交"
   },
   "footer": {
-    "tagline": "What's Your Care About?"
+    "tagline": "你在乎什么？"
+  },
+  "theme": {
+    "switchToLight": "切换到亮色模式",
+    "switchToDark": "切换到暗色模式",
+    "lightMode": "亮色模式",
+    "darkMode": "暗色模式"
   }
 }

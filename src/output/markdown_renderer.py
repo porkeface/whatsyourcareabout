@@ -4,27 +4,10 @@ import logging
 from datetime import datetime, timezone
 from collections import defaultdict
 
+from src.domain_constants import DOMAIN_EMOJI, DOMAIN_LABEL
 from src.models import DailyDigest, Item
 
 logger = logging.getLogger(__name__)
-
-DOMAIN_EMOJI: dict[str, str] = {
-    "ai": "\U0001f916",
-    "finance": "\U0001f4b0",
-    "academic": "\U0001f4da",
-    "tech": "\U0001f4bb",
-    "general": "\U0001f4f0",
-    "social": "\U0001f310",
-}
-
-DOMAIN_LABEL: dict[str, str] = {
-    "ai": "AI / Machine Learning",
-    "finance": "Finance",
-    "academic": "Academic",
-    "tech": "Technology",
-    "general": "General",
-    "social": "Social",
-}
 
 
 def _group_by_domain(items: list[Item]) -> dict[str, list[Item]]:

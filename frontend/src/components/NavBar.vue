@@ -78,8 +78,8 @@ function navigate(path) {
         <button
           class="theme-toggle"
           @click="emit('toggle-theme')"
-          :aria-label="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
-          :title="theme === 'dark' ? 'Light mode' : 'Dark mode'"
+          :aria-label="theme === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')"
+          :title="theme === 'dark' ? t('theme.lightMode') : t('theme.darkMode')"
         >
           <!-- Sun icon for dark mode (click to go light) -->
           <svg v-if="theme === 'dark'" class="theme-icon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">

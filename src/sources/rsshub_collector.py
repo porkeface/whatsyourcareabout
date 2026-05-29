@@ -159,16 +159,5 @@ def _parse_date(date_str: str) -> datetime | None:
     except Exception:
         pass
 
-    for fmt in (
-        "%a, %d %b %Y %H:%M:%S %z",
-        "%a, %d %b %Y %H:%M:%S %Z",
-        "%Y-%m-%dT%H:%M:%S%z",
-        "%Y-%m-%dT%H:%M:%SZ",
-        "%Y-%m-%d %H:%M:%S",
-    ):
-        try:
-            return datetime.strptime(date_str, fmt).replace(tzinfo=timezone.utc)
-        except ValueError:
-            continue
-
-    return None
+    from src.utils import parse_date_flexible
+    return parse_date_flexible(date_str)

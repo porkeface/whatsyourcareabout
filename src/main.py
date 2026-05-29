@@ -227,16 +227,22 @@ async def run_daily_digest(config: dict, date_override: str | None = None) -> No
     html_content: str | None = None
 
     if "markdown" in formats:
-        md_content = render_markdown(digest)
-        md_path = output_dir / f"{date_str}.md"
-        md_path.write_text(md_content, encoding="utf-8")
-        logger.info("Markdown saved to %s", md_path)
+        try:
+            md_content = render_markdown(digest)
+            md_path = output_dir / f"{date_str}.md"
+            md_path.write_text(md_content, encoding="utf-8")
+            logger.info("Markdown saved to %s", md_path)
+        except Exception as exc:
+            logger.error("Markdown rendering failed: %s", exc)
 
     if "html" in formats:
-        html_content = render_html(digest)
-        html_path = output_dir / f"{date_str}.html"
-        html_path.write_text(html_content, encoding="utf-8")
-        logger.info("HTML saved to %s", html_path)
+        try:
+            html_content = render_html(digest)
+            html_path = output_dir / f"{date_str}.html"
+            html_path.write_text(html_content, encoding="utf-8")
+            logger.info("HTML saved to %s", html_path)
+        except Exception as exc:
+            logger.error("HTML rendering failed: %s", exc)
 
     # 9. Optionally push to Telegram
     telegram_config = output_config.get("telegram", {})

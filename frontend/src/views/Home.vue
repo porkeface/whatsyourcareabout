@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePreferredDark, useLocalStorage } from '@vueuse/core'
 import SearchBar from '../components/SearchBar.vue'
@@ -21,6 +21,7 @@ const loading = ref(true)
 const error = ref(null)
 const selectedDate = ref('')
 const showDatePicker = ref(false)
+const datePickerRef = ref(null)
 
 // Available domains
 const availableDomains = DOMAIN_ORDER
@@ -49,7 +50,6 @@ const groupedItems = computed(() => {
     : base
 
   const groups = {}
-  const domainOrder = ['ai', 'finance', 'academic', 'tech', 'general', 'social']
 
   for (const item of filtered) {
     const domain = item.domain || 'general'
@@ -59,10 +59,16 @@ const groupedItems = computed(() => {
     groups[domain].push(item)
   }
 
-  // Sort groups by domain order
+  // Sort groups by domain order, append unknown domains at the end
   const sorted = {}
-  for (const d of domainOrder) {
+  for (const d of DOMAIN_ORDER) {
     if (groups[d]) {
+      sorted[d] = groups[d]
+    }
+  }
+  // Include any domains not in DOMAIN_ORDER
+  for (const d of Object.keys(groups)) {
+    if (!sorted[d]) {
       sorted[d] = groups[d]
     }
   }
@@ -111,8 +117,7 @@ async function loadDigest(date = null) {
     }
   } catch (err) {
     error.value = err.response?.data?.detail || err.message || 'Failed to load digest'
-    // Use mock data for demo
-    digest.value = createMockDigest()
+    digest.value = null
     selectedDate.value = getTodayStr()
   } finally {
     loading.value = false
@@ -140,29 +145,25 @@ function navigateToDate(date) {
   loadDigest(date)
 }
 
-function createMockDigest() {
-  return {
-    date: getTodayStr(),
-    items: [
-      { id: 1, title: 'OpenAI Announces GPT-5 with Enhanced Reasoning', url: 'https://example.com/1', source: 'TechCrunch', domain: 'ai', score: 95, summary: 'Major breakthrough in language model capabilities with significant improvements in mathematical reasoning and code generation.' },
-      { id: 2, title: 'Federal Reserve Signals Rate Cut in September', url: 'https://example.com/2', source: 'Bloomberg', domain: 'finance', score: 88, summary: 'Fed chair indicates openness to rate reduction as inflation data shows continued cooling trend.' },
-      { id: 3, title: 'New Transformer Architecture Achieves SOTA on Multiple Benchmarks', url: 'https://example.com/3', source: 'arXiv', domain: 'academic', score: 82, summary: 'Research paper introduces sparse attention mechanism that reduces compute by 40% while maintaining performance.' },
-      { id: 4, title: 'Apple Vision Pro 2 Leaked Specs Reveal Major Upgrade', url: 'https://example.com/4', source: 'The Verge', domain: 'tech', score: 79, summary: 'Thinner design, wider field of view, and significantly improved battery life reported in supply chain leaks.' },
-      { id: 5, title: 'Global Climate Summit Reaches Historic Agreement', url: 'https://example.com/5', source: 'Reuters', domain: 'general', score: 85, summary: '195 nations commit to accelerating carbon neutrality timeline with binding enforcement mechanisms.' },
-      { id: 6, title: 'Twitter Introduces Creator Monetization 2.0', url: 'https://example.com', source: 'SocialMediaToday', domain: 'social', score: 72, summary: 'New revenue sharing model promises 70% ad revenue share for creators meeting engagement thresholds.' },
-      { id: 7, title: 'Claude 4 Opus Sets New Performance Records', url: 'https://example.com/7', source: 'AI News', domain: 'ai', score: 91, summary: 'Anthropic releases latest model showing significant improvements in coding, analysis, and creative tasks.' },
-      { id: 8, title: 'Bitcoin ETF Inflows Hit Record $2.4B in Single Day', url: 'https://example.com/8', source: 'CoinDesk', domain: 'finance', score: 87, summary: 'Institutional demand for crypto exposure continues to surge as major asset managers compete for market share.' },
-    ]
-  }
-}
-
 // Handle domain filter
 function handleDomainSelect(domain) {
   selectedDomain.value = domain
 }
 
+// Click outside to close date picker
+function handleClickOutside(event) {
+  if (datePickerRef.value && !datePickerRef.value.contains(event.target)) {
+    showDatePicker.value = false
+  }
+}
+
 onMounted(async () => {
+  document.addEventListener('click', handleClickOutside)
   await Promise.all([loadDigest(), loadDigestList()])
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -208,7 +209,7 @@ onMounted(async () => {
         />
 
         <!-- Date Picker -->
-        <div class="date-picker-wrapper">
+        <div class="date-picker-wrapper" ref="datePickerRef">
           <button
             class="date-picker-toggle"
             @click="showDatePicker = !showDatePicker"

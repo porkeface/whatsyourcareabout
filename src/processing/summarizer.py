@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 from dataclasses import replace
 
 from openai import AsyncOpenAI
@@ -22,6 +23,9 @@ from src.models import DailyDigest, Item
 logger = logging.getLogger(__name__)
 
 __all__ = ["summarize_digest"]
+
+# Lock to protect os.environ proxy mutation from concurrent threads
+_proxy_lock = threading.Lock()
 
 _DEFAULT_MODEL = "mimo-v2.5-pro"
 _DEFAULT_BASE_URL = "https://api.siliconflow.cn/v1"
@@ -249,22 +253,24 @@ async def _fetch_article_text(url: str, proxy: str | None = None) -> str:
         import trafilatura
 
         def _download() -> str | None:
-            old_http = os.environ.get("HTTP_PROXY")
-            old_https = os.environ.get("HTTPS_PROXY")
-            try:
-                if proxy:
+            if not proxy:
+                return trafilatura.fetch_url(url)
+            with _proxy_lock:
+                old_http = os.environ.get("HTTP_PROXY")
+                old_https = os.environ.get("HTTPS_PROXY")
+                try:
                     os.environ["HTTP_PROXY"] = proxy
                     os.environ["HTTPS_PROXY"] = proxy
-                return trafilatura.fetch_url(url)
-            finally:
-                if old_http is None:
-                    os.environ.pop("HTTP_PROXY", None)
-                else:
-                    os.environ["HTTP_PROXY"] = old_http
-                if old_https is None:
-                    os.environ.pop("HTTPS_PROXY", None)
-                else:
-                    os.environ["HTTPS_PROXY"] = old_https
+                    return trafilatura.fetch_url(url)
+                finally:
+                    if old_http is None:
+                        os.environ.pop("HTTP_PROXY", None)
+                    else:
+                        os.environ["HTTP_PROXY"] = old_http
+                    if old_https is None:
+                        os.environ.pop("HTTPS_PROXY", None)
+                    else:
+                        os.environ["HTTPS_PROXY"] = old_https
 
         downloaded: str | None = await asyncio.to_thread(_download)
         if not downloaded:
