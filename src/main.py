@@ -37,6 +37,7 @@ COLLECTOR_REGISTRY: dict[str, tuple[str, str]] = {
     "newsapi": ("src.sources.newsapi_source", "NewsAPICollector"),
     "finnhub": ("src.sources.finnhub", "FinnhubCollector"),
     "rsshub": ("src.sources.rsshub_collector", "RSSHubCollector"),
+    "dailyhot": ("src.sources.dailyhot_collector", "DailyHotCollector"),
 }
 
 

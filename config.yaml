@@ -7,7 +7,7 @@ sources:
     weight: 1.0
     max_items: 20
   reddit:
-    enabled: true
+    enabled: false
     weight: 1.0
     subreddits: ["MachineLearning", "artificial", "technology"]
     max_items: 20
@@ -64,7 +64,7 @@ sources:
     api_key: "${FINNHUB_KEY}"
     max_items: 15
   rsshub:
-    enabled: true
+    enabled: false
     weight: 0.9
     base_url: "https://rsshub.app"
     routes:
@@ -84,6 +84,30 @@ sources:
         path: "/sspai/hot"
         domain: "tech"
     max_items: 20
+  dailyhot:
+    enabled: true
+    weight: 0.9
+    base_url: "${DAILYHOT_API_URL}"
+    routes:
+      - name: "微博热搜"
+        path: "/weibo"
+        domain: "social"
+      - name: "B站热门"
+        path: "/bilibili"
+        domain: "tech"
+      - name: "抖音热点"
+        path: "/douyin"
+        domain: "social"
+      - name: "知乎热榜"
+        path: "/zhihu"
+        domain: "social"
+      - name: "百度热搜"
+        path: "/baidu"
+        domain: "general"
+      - name: "今日头条"
+        path: "/toutiao"
+        domain: "general"
+    max_items: 30
 
 processing:
   dedup_threshold: 0.85
