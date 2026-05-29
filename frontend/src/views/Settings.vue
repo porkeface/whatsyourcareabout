@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { getHealth, triggerCollect, getDigests, getSources, updateSource, getKeys } from '../api/client.js'
 import { useI18n } from '../composables/useI18n.js'
 
@@ -17,6 +17,7 @@ const loading = ref(true)
 const sources = ref({})
 const apiKeys = ref([])
 const savingSource = ref(null)
+const expandedSources = ref({})
 
 const sourceMeta = {
   hacker_news: { label: 'Hacker News', emoji: '🔶' },
@@ -36,6 +37,20 @@ function getSourceLabel(name) {
 
 function getSourceEmoji(name) {
   return sourceMeta[name]?.emoji || '📌'
+}
+
+function hasRoutes(name) {
+  const source = sources.value[name]
+  return source && (source.routes || source.feeds)
+}
+
+function getRoutes(name) {
+  const source = sources.value[name]
+  return source?.routes || source?.feeds || []
+}
+
+function toggleExpand(name) {
+  expandedSources.value[name] = !expandedSources.value[name]
 }
 
 async function loadHealth() {
@@ -86,6 +101,26 @@ async function toggleSource(name) {
     console.error('Failed to toggle source:', err)
   } finally {
     savingSource.value = null
+  }
+}
+
+async function toggleRoute(sourceName, routeIndex) {
+  const source = sources.value[sourceName]
+  if (!source) return
+
+  const routes = [...(source.routes || source.feeds || [])]
+  const route = routes[routeIndex]
+  if (!route) return
+
+  // Toggle enabled state (default true if not set)
+  route.enabled = route.enabled === undefined ? false : !route.enabled
+
+  const key = source.routes ? 'routes' : 'feeds'
+  try {
+    await updateSource(sourceName, { [key]: routes })
+    sources.value[sourceName] = { ...source, [key]: routes }
+  } catch (err) {
+    console.error('Failed to toggle route:', err)
   }
 }
 
@@ -238,8 +273,21 @@ onMounted(async () => {
             >
               <div class="source-row">
                 <div class="source-info">
+                  <button
+                    v-if="hasRoutes(name)"
+                    class="expand-btn"
+                    @click="toggleExpand(name)"
+                    :aria-expanded="expandedSources[name]"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" :class="{ rotated: expandedSources[name] }">
+                      <path d="M6.22 3.22a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 010-1.06z"/>
+                    </svg>
+                  </button>
                   <span class="source-emoji">{{ getSourceEmoji(name) }}</span>
                   <span class="source-name">{{ getSourceLabel(name) }}</span>
+                  <span class="route-count" v-if="hasRoutes(name)">
+                    {{ getRoutes(name).length }} 项
+                  </span>
                 </div>
                 <div class="source-controls">
                   <div class="source-param">
@@ -278,6 +326,32 @@ onMounted(async () => {
                   </button>
                 </div>
               </div>
+
+              <!-- Nested routes -->
+              <transition name="expand">
+                <div v-if="expandedSources[name] && hasRoutes(name)" class="routes-list">
+                  <div
+                    v-for="(route, idx) in getRoutes(name)"
+                    :key="idx"
+                    class="route-item"
+                  >
+                    <div class="route-info">
+                      <span class="route-name">{{ route.name }}</span>
+                      <span class="route-path">{{ route.path || route.url }}</span>
+                      <span class="route-domain" v-if="route.domain">{{ route.domain }}</span>
+                    </div>
+                    <button
+                      class="route-toggle"
+                      :class="{ active: route.enabled !== false }"
+                      @click="toggleRoute(name, idx)"
+                    >
+                      <span class="toggle-track-sm">
+                        <span class="toggle-thumb-sm"></span>
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </transition>
             </div>
           </div>
         </div>
@@ -672,6 +746,147 @@ onMounted(async () => {
 
 .toggle-btn.active .toggle-label {
   color: var(--color-accent);
+}
+
+/* Expand button */
+.expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--color-text-muted);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.expand-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.expand-btn svg {
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.expand-btn svg.rotated {
+  transform: rotate(90deg);
+}
+
+.route-count {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+
+/* Nested routes */
+.routes-list {
+  margin-left: 36px;
+  margin-top: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--color-border-subtle);
+}
+
+.route-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.route-item:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.route-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.route-name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.route-path {
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.route-domain {
+  font-size: 10px;
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+
+/* Small toggle for routes */
+.route-toggle {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: var(--radius-full);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.toggle-track-sm {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.route-toggle.active .toggle-track-sm {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.toggle-thumb-sm {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: var(--radius-full);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.route-toggle.active .toggle-thumb-sm {
+  transform: translateX(12px);
+}
+
+/* Expand transition */
+.expand-enter-active,
+.expand-leave-active {
+  transition: all var(--duration-fast) var(--ease-out);
+  overflow: hidden;
+}
+
+.expand-enter-from,
+.expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+}
+
+.expand-enter-to,
+.expand-leave-from {
+  opacity: 1;
+  max-height: 500px;
 }
 
 /* API Keys */

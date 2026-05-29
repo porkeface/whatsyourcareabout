@@ -50,6 +50,11 @@ class DailyHotCollector(BaseCollector):
         all_items: list[Item] = []
 
         for route in self._routes:
+            # Skip disabled routes (enabled defaults to True)
+            if route.get("enabled") is False:
+                logger.debug("Skipping disabled route: %s", route.get("name"))
+                continue
+
             name = route.get("name", "unknown")
             path = route.get("path", "")
             domain = route.get("domain", "social")

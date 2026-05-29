@@ -28,6 +28,11 @@ class RSSCollector(BaseCollector):
         all_items: list[Item] = []
 
         for feed_config in self._feeds:
+            # Skip disabled feeds (enabled defaults to True)
+            if feed_config.get("enabled") is False:
+                logger.debug("Skipping disabled feed: %s", feed_config.get("name"))
+                continue
+
             name = feed_config.get("name", "unknown")
             url = feed_config.get("url", "")
             domain = feed_config.get("domain", "general")
