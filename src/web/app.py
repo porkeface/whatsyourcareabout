@@ -20,6 +20,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.config import load_config
 from src.database import DB_PATH, get_connection, init_db
+from src.settings_db import (
+    get_all_settings,
+    get_effective_config,
+    get_setting,
+    init_settings_from_config,
+    set_setting,
+)
 
 logger = logging.getLogger("wyca.web")
 
@@ -65,6 +72,13 @@ def _verify_collect_key(request: Request) -> None:
 async def lifespan(app: FastAPI):
     init_db()
     logger.info("Database initialized on startup")
+    # Initialize settings from config.yaml defaults
+    try:
+        config = load_config()
+        init_settings_from_config(config)
+        logger.info("Settings initialized from config")
+    except Exception:
+        logger.warning("Could not initialize settings from config", exc_info=True)
     yield
 
 
@@ -381,8 +395,9 @@ async def trigger_collection(request: Request) -> dict[str, str]:
     _verify_collect_key(request)
 
     try:
-        config = load_config()
-    except FileNotFoundError:
+        config = get_effective_config()
+    except Exception:
+        logger.error("Failed to load effective config, falling back to defaults", exc_info=True)
         config = {"sources": {}, "output": {"output_dir": "./output", "formats": ["markdown"]}}
 
     async def _run() -> None:
@@ -396,3 +411,140 @@ async def trigger_collection(request: Request) -> dict[str, str]:
     _background_tasks.add(task)
     task.add_done_callback(_track_task)
     return {"status": "started"}
+
+
+# ---------------------------------------------------------------------------
+# Settings API
+# ---------------------------------------------------------------------------
+
+# API key config mapping: env_key -> display name
+_API_KEY_MAP = {
+    "MIMO_API_KEY": "MIMO (AI 摘要)",
+    "NEWSAPI_KEY": "NewsAPI",
+    "FINNHUB_KEY": "Finnhub (金融)",
+    "DAILYHOT_API_URL": "DailyHotApi (热搜聚合)",
+    "HTTPS_PROXY": "代理地址",
+    "TELEGRAM_BOT_TOKEN": "Telegram Bot Token",
+    "TELEGRAM_CHAT_ID": "Telegram Chat ID",
+}
+
+
+def _mask_value(value: str) -> str:
+    """Mask a sensitive value, showing first 3 and last 4 chars."""
+    if not value or len(value) <= 7:
+        return "***"
+    return f"{value[:3]}{'*' * (len(value) - 7)}{value[-4:]}"
+
+
+@app.get("/api/settings")
+async def get_settings(request: Request) -> dict:
+    """Get all runtime settings."""
+    _check_rate_limit(request.client.host if request.client else "unknown")
+    return get_all_settings()
+
+
+@app.put("/api/settings")
+async def update_settings(request: Request, body: dict) -> dict[str, str]:
+    """Batch update settings."""
+    _check_rate_limit(request.client.host if request.client else "unknown")
+    for key, value in body.items():
+        set_setting(key, value)
+    return {"status": "updated"}
+
+
+@app.get("/api/settings/sources")
+async def get_sources(request: Request) -> dict:
+    """Get all data sources with their configuration."""
+    _check_rate_limit(request.client.host if request.client else "unknown")
+    sources = get_setting("sources", {})
+    return {"sources": sources}
+
+
+@app.put("/api/settings/sources/{name}")
+async def update_source(name: str, request: Request, body: dict) -> dict[str, str]:
+    """Update a single data source configuration."""
+    _check_rate_limit(request.client.host if request.client else "unknown")
+    sources = get_setting("sources", {})
+    if name not in sources:
+        raise HTTPException(status_code=404, detail=f"Source '{name}' not found")
+
+    # Update allowed fields
+    source = sources[name]
+    for key in ("enabled", "weight", "max_items"):
+        if key in body:
+            source[key] = body[key]
+
+    # Update sub-configs (feeds, routes, etc.)
+    for key in ("feeds", "routes", "subreddits", "categories", "languages", "queries"):
+        if key in body:
+            source[key] = body[key]
+
+    sources[name] = source
+    set_setting("sources", sources)
+    return {"status": "updated"}
+
+
+@app.get("/api/settings/keys")
+async def get_keys(request: Request) -> list[dict]:
+    """Get API key configuration status (masked values)."""
+    _check_rate_limit(request.client.host if request.client else "unknown")
+    import os
+    result = []
+    for env_key, display_name in _API_KEY_MAP.items():
+        raw_value = os.environ.get(env_key, "")
+        # Also check settings table for overrides
+        settings_value = get_setting(f"key:{env_key}", "")
+        value = settings_value or raw_value
+        result.append({
+            "key": env_key,
+            "name": display_name,
+            "configured": bool(value),
+            "masked": _mask_value(value) if value else "",
+        })
+    return result
+
+
+@app.put("/api/settings/keys")
+async def update_keys(request: Request, body: dict) -> dict[str, str]:
+    """Update API keys. Keys are stored in the settings table."""
+    _check_rate_limit(request.client.host if request.client else "unknown")
+    for env_key, value in body.items():
+        if env_key in _API_KEY_MAP and value:
+            set_setting(f"key:{env_key}", value)
+    return {"status": "updated"}
+
+
+@app.post("/api/settings/sources/{name}/test")
+async def test_source(name: str, request: Request) -> dict:
+    """Test a data source by running a quick collect."""
+    _check_rate_limit(request.client.host if request.client else "unknown")
+    sources = get_setting("sources", {})
+    if name not in sources:
+        raise HTTPException(status_code=404, detail=f"Source '{name}' not found")
+
+    # Import and run the collector
+    from src.main import COLLECTOR_REGISTRY, _import_collector
+
+    if name not in COLLECTOR_REGISTRY:
+        raise HTTPException(status_code=400, detail=f"No collector registered for '{name}'")
+
+    module_path, class_name = COLLECTOR_REGISTRY[name]
+    try:
+        collector_cls = _import_collector(module_path, class_name)
+        config = get_effective_config()
+        collector = collector_cls(config)
+        items = await collector.collect()
+        await collector.close()
+        return {
+            "status": "ok",
+            "source": name,
+            "items_collected": len(items),
+            "sample": [{"title": item.title[:50], "url": item.url} for item in items[:3]],
+        }
+    except Exception as exc:
+        logger.error("Source test failed for %s: %s", name, exc, exc_info=True)
+        return {
+            "status": "error",
+            "source": name,
+            "error": str(exc),
+        }

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getHealth, triggerCollect, getDigests } from '../api/client.js'
+import { getHealth, triggerCollect, getDigests, getSources, updateSource, getKeys } from '../api/client.js'
 import { useI18n } from '../composables/useI18n.js'
 
 const { t } = useI18n()
@@ -13,39 +13,29 @@ const collectMessageType = ref('info')
 const recentDigests = ref([])
 const loading = ref(true)
 
-// Mock API key display
-const apiKeys = ref([
-  { name: 'NEWS_API_KEY', masked: 'news_****...****8f3a', configured: true },
-  { name: 'OPENAI_API_KEY', masked: 'sk-****...****k7j2', configured: true },
-  { name: 'REDDIT_CLIENT_ID', masked: 'rdt_****...****4x9q', configured: false },
-])
+// Real data
+const sources = ref({})
+const apiKeys = ref([])
+const savingSource = ref(null)
 
-// Mock sources
-const sources = ref([
-  { name: 'RSS Feeds', type: 'rss', status: 'active', items: 12, lastSync: '2 min ago' },
-  { name: 'Hacker News', type: 'api', status: 'active', items: 24, lastSync: '5 min ago' },
-  { name: 'ArXiv Papers', type: 'api', status: 'active', items: 8, lastSync: '10 min ago' },
-  { name: 'Reddit', type: 'api', status: 'error', items: 0, lastSync: 'Failed', error: 'Invalid credentials' },
-  { name: 'TechCrunch', type: 'rss', status: 'active', items: 6, lastSync: '15 min ago' },
-  { name: 'Bloomberg', type: 'rss', status: 'inactive', items: 0, lastSync: 'Never' },
-])
-
-function getStatusColor(status) {
-  switch (status) {
-    case 'active': return 'var(--color-success)'
-    case 'error': return 'var(--color-error)'
-    case 'inactive': return 'var(--color-text-muted)'
-    default: return 'var(--color-text-muted)'
-  }
+const sourceMeta = {
+  hacker_news: { label: 'Hacker News', emoji: '🔶' },
+  reddit: { label: 'Reddit', emoji: '🤖' },
+  arxiv: { label: 'arXiv', emoji: '📄' },
+  github_trending: { label: 'GitHub Trending', emoji: '⭐' },
+  rss: { label: 'RSS Feeds', emoji: '📡' },
+  newsapi: { label: 'NewsAPI', emoji: '📰' },
+  finnhub: { label: 'Finnhub', emoji: '💰' },
+  rsshub: { label: 'RSSHub', emoji: '🔗' },
+  dailyhot: { label: 'DailyHotApi', emoji: '🔥' },
 }
 
-function getStatusLabel(status) {
-  switch (status) {
-    case 'active': return t('settings.active')
-    case 'error': return t('settings.error')
-    case 'inactive': return t('settings.inactive')
-    default: return t('settings.unknown')
-  }
+function getSourceLabel(name) {
+  return sourceMeta[name]?.label || name
+}
+
+function getSourceEmoji(name) {
+  return sourceMeta[name]?.emoji || '📌'
 }
 
 async function loadHealth() {
@@ -62,14 +52,64 @@ async function loadDigests() {
     const response = await getDigests()
     recentDigests.value = (response.data || []).slice(0, 10)
   } catch {
-    // Use mock data
-    recentDigests.value = [
-      { date: '2026-05-28', item_count: 18 },
-      { date: '2026-05-27', item_count: 22 },
-      { date: '2026-05-26', item_count: 15 },
-      { date: '2026-05-25', item_count: 20 },
-      { date: '2026-05-24', item_count: 12 },
-    ]
+    recentDigests.value = []
+  }
+}
+
+async function loadSources() {
+  try {
+    const response = await getSources()
+    sources.value = response.data?.sources || {}
+  } catch {
+    sources.value = {}
+  }
+}
+
+async function loadKeys() {
+  try {
+    const response = await getKeys()
+    apiKeys.value = response.data || []
+  } catch {
+    apiKeys.value = []
+  }
+}
+
+async function toggleSource(name) {
+  const source = sources.value[name]
+  if (!source) return
+
+  savingSource.value = name
+  try {
+    await updateSource(name, { enabled: !source.enabled })
+    sources.value[name] = { ...source, enabled: !source.enabled }
+  } catch (err) {
+    console.error('Failed to toggle source:', err)
+  } finally {
+    savingSource.value = null
+  }
+}
+
+async function updateSourceWeight(name, weight) {
+  const source = sources.value[name]
+  if (!source) return
+
+  try {
+    await updateSource(name, { weight: parseFloat(weight) })
+    sources.value[name] = { ...source, weight: parseFloat(weight) }
+  } catch (err) {
+    console.error('Failed to update weight:', err)
+  }
+}
+
+async function updateSourceMaxItems(name, maxItems) {
+  const source = sources.value[name]
+  if (!source) return
+
+  try {
+    await updateSource(name, { max_items: parseInt(maxItems) })
+    sources.value[name] = { ...source, max_items: parseInt(maxItems) }
+  } catch (err) {
+    console.error('Failed to update max_items:', err)
   }
 }
 
@@ -80,10 +120,10 @@ async function handleCollect() {
 
   try {
     const response = await triggerCollect()
-    collectMessage.value = response.data?.message || 'Collection triggered successfully'
+    collectMessage.value = response.data?.status === 'started' ? '采集已启动' : 'Collection triggered'
     collectMessageType.value = 'success'
   } catch (err) {
-    collectMessage.value = err.response?.data?.detail || 'Collection triggered (backend may not be running)'
+    collectMessage.value = err.response?.data?.detail || '采集已启动（后端可能未运行）'
     collectMessageType.value = 'warning'
   } finally {
     collecting.value = false
@@ -95,7 +135,7 @@ async function handleCollect() {
 
 onMounted(async () => {
   loading.value = true
-  await Promise.all([loadHealth(), loadDigests()])
+  await Promise.all([loadHealth(), loadDigests(), loadSources(), loadKeys()])
   loading.value = false
 })
 </script>
@@ -192,28 +232,52 @@ onMounted(async () => {
         <div class="card-body">
           <div class="sources-list">
             <div
-              v-for="source in sources"
-              :key="source.name"
+              v-for="(source, name) in sources"
+              :key="name"
               class="source-item"
             >
-              <div class="source-info">
-                <span class="source-name">{{ source.name }}</span>
-                <span class="source-type">{{ source.type }}</span>
+              <div class="source-row">
+                <div class="source-info">
+                  <span class="source-emoji">{{ getSourceEmoji(name) }}</span>
+                  <span class="source-name">{{ getSourceLabel(name) }}</span>
+                </div>
+                <div class="source-controls">
+                  <div class="source-param">
+                    <label class="param-label">权重</label>
+                    <input
+                      type="number"
+                      class="param-input"
+                      :value="source.weight || 1.0"
+                      min="0"
+                      max="2"
+                      step="0.1"
+                      @change="updateSourceWeight(name, $event.target.value)"
+                    />
+                  </div>
+                  <div class="source-param">
+                    <label class="param-label">最大条数</label>
+                    <input
+                      type="number"
+                      class="param-input"
+                      :value="source.max_items || 20"
+                      min="1"
+                      max="100"
+                      @change="updateSourceMaxItems(name, $event.target.value)"
+                    />
+                  </div>
+                  <button
+                    class="toggle-btn"
+                    :class="{ active: source.enabled }"
+                    :disabled="savingSource === name"
+                    @click="toggleSource(name)"
+                  >
+                    <span class="toggle-track">
+                      <span class="toggle-thumb"></span>
+                    </span>
+                    <span class="toggle-label">{{ source.enabled ? '启用' : '禁用' }}</span>
+                  </button>
+                </div>
               </div>
-              <div class="source-meta">
-                <span class="source-items" v-if="source.items > 0">
-                  {{ source.items }} {{ t('settings.items') }}
-                </span>
-                <span class="source-sync">{{ source.lastSync }}</span>
-                <span
-                  class="source-status"
-                  :style="{ color: getStatusColor(source.status) }"
-                >
-                  <span class="status-dot-sm" :style="{ background: getStatusColor(source.status) }"></span>
-                  {{ getStatusLabel(source.status) }}
-                </span>
-              </div>
-              <p class="source-error" v-if="source.error">{{ source.error }}</p>
             </div>
           </div>
         </div>
@@ -232,23 +296,23 @@ onMounted(async () => {
         </div>
         <div class="card-body">
           <p class="card-description muted">
-            {{ t('settings.apiKeysDescription') }}
+            API 密钥通过环境变量配置。在 .env 文件中设置。
           </p>
           <div class="keys-list">
             <div
               v-for="key in apiKeys"
-              :key="key.name"
+              :key="key.key"
               class="key-item"
             >
               <div class="key-info">
                 <span class="key-name">{{ key.name }}</span>
-                <span class="key-value">{{ key.masked }}</span>
+                <span class="key-value">{{ key.masked || '未设置' }}</span>
               </div>
               <span
                 class="key-status"
                 :class="{ configured: key.configured }"
               >
-                {{ key.configured ? t('settings.configured') : t('settings.notSet') }}
+                {{ key.configured ? '已配置' : '未设置' }}
               </span>
             </div>
           </div>
@@ -496,11 +560,22 @@ onMounted(async () => {
   background: var(--color-bg-tertiary);
 }
 
+.source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
 .source-info {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-1);
+  gap: var(--space-2);
+}
+
+.source-emoji {
+  font-size: var(--text-lg);
 }
 
 .source-name {
@@ -509,36 +584,94 @@ onMounted(async () => {
   color: var(--color-text-primary);
 }
 
-.source-type {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  background: var(--color-bg-tertiary);
-  padding: 1px var(--space-2);
-  border-radius: var(--radius-sm);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  font-weight: 500;
-}
-
-.source-meta {
+.source-controls {
   display: flex;
   align-items: center;
   gap: var(--space-4);
+}
+
+.source-param {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.param-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.param-input {
+  width: 60px;
+  padding: var(--space-1) var(--space-2);
   font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.param-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+/* Toggle Button */
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.toggle-btn:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.toggle-track {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.toggle-btn.active .toggle-track {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: var(--radius-full);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.toggle-btn.active .toggle-thumb {
+  transform: translateX(16px);
+}
+
+.toggle-label {
+  font-size: var(--text-xs);
+  font-weight: 500;
   color: var(--color-text-secondary);
 }
 
-.source-status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-weight: 500;
-}
-
-.source-error {
-  font-size: var(--text-xs);
-  color: var(--color-error);
-  margin-top: var(--space-1);
+.toggle-btn.active .toggle-label {
+  color: var(--color-accent);
 }
 
 /* API Keys */

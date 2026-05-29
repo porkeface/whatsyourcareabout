@@ -34,4 +34,13 @@ export const getItems = (params) => api.get('/items', { params })
 export const triggerCollect = () => api.post('/collect')
 export const getHealth = () => api.get('/health')
 
+// Settings API
+export const getSettings = () => api.get('/settings')
+export const updateSettings = (settings) => api.put('/settings', settings)
+export const getSources = () => api.get('/settings/sources')
+export const updateSource = (name, config) => api.put(`/settings/sources/${name}`, config)
+export const getKeys = () => api.get('/settings/keys')
+export const updateKeys = (keys) => api.put('/settings/keys', keys)
+export const testSource = (name) => api.post(`/settings/sources/${name}/test`)
+
 export default api
