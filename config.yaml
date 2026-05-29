@@ -89,17 +89,11 @@ sources:
     weight: 0.9
     base_url: "${DAILYHOT_API_URL}"
     routes:
-      - name: "微博热搜"
-        path: "/weibo"
-        domain: "social"
       - name: "B站热门"
         path: "/bilibili"
         domain: "tech"
       - name: "抖音热点"
         path: "/douyin"
-        domain: "social"
-      - name: "知乎热榜"
-        path: "/zhihu"
         domain: "social"
       - name: "百度热搜"
         path: "/baidu"
@@ -107,6 +101,12 @@ sources:
       - name: "今日头条"
         path: "/toutiao"
         domain: "general"
+      - name: "微博热搜"
+        path: "/weibo"
+        domain: "social"
+      - name: "知乎热榜"
+        path: "/zhihu"
+        domain: "social"
     max_items: 30
 
 processing:
