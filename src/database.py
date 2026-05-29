@@ -155,8 +155,11 @@ def update_item_summary_and_title(url: str, summary: str, summary_zh: str, title
     """
     try:
         cursor = conn.execute(
-            "UPDATE items SET summary = ?, summary_zh = ?, title_zh = ? WHERE url = ? "
-            "AND (summary IS NULL OR summary = '' OR summary_zh IS NULL OR summary_zh = '' OR title_zh IS NULL OR title_zh = '')",
+            "UPDATE items SET "
+            "summary = CASE WHEN summary IS NULL OR summary = '' THEN ? ELSE summary END, "
+            "summary_zh = CASE WHEN summary_zh IS NULL OR summary_zh = '' THEN ? ELSE summary_zh END, "
+            "title_zh = CASE WHEN title_zh IS NULL OR title_zh = '' THEN ? ELSE title_zh END "
+            "WHERE url = ?",
             (summary, summary_zh, title_zh, url),
         )
         updated = cursor.rowcount > 0

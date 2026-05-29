@@ -21,7 +21,7 @@ from src.database import (
     init_db,
     insert_items,
 )
-from src.models import DailyDigest
+from src.models import DailyDigest, Item
 from src.output.html_renderer import render_html
 from src.output.markdown_renderer import render_markdown
 
@@ -56,14 +56,8 @@ def _setup_logging(verbose: bool = False) -> None:
     )
 
 
-async def _run_collector_safe(collector_cls: type, config: dict) -> list:
+async def _run_collector_safe(collector_cls: type, config: dict, source_key: str) -> list:
     """Run a single collector with error isolation."""
-    source_key = None
-    for key, (_, cls) in COLLECTOR_REGISTRY.items():
-        if cls == collector_cls.__name__:
-            source_key = key
-            break
-
     try:
         collector = collector_cls(config)
         items = await collector.collect()
@@ -72,7 +66,7 @@ async def _run_collector_safe(collector_cls: type, config: dict) -> list:
     except Exception:
         logger.error(
             "Collector %s failed unexpectedly",
-            source_key or collector_cls.__name__,
+            source_key,
             exc_info=True,
         )
         return []
@@ -128,8 +122,8 @@ async def run_daily_digest(config: dict, date_override: str | None = None) -> No
     )
 
     tasks = [
-        _run_collector_safe(cls, config)
-        for _, cls in collectors_to_run
+        _run_collector_safe(cls, config, source_key)
+        for source_key, cls in collectors_to_run
     ]
     results = await asyncio.gather(*tasks)
 

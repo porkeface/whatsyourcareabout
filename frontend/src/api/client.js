@@ -13,7 +13,8 @@ api.interceptors.response.use(
   response => response,
   error => {
     const message = error.response?.data?.detail || error.message || 'Request failed'
-    return Promise.reject(new Error(message))
+    error.userMessage = message
+    return Promise.reject(error)
   }
 )
 

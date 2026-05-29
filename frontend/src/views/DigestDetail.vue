@@ -75,7 +75,7 @@ async function loadDigest(date) {
     const response = await getDigest(date)
     digest.value = response.data
   } catch (err) {
-    error.value = err.response?.data?.detail || err.message || 'Failed to load digest'
+    error.value = err.userMessage || err.response?.data?.detail || err.message || 'Failed to load digest'
   } finally {
     loading.value = false
   }

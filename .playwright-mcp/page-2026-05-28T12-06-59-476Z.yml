@@ -1,0 +1,157 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "W WYCA" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: W
+        - generic [ref=e8]: WYCA
+      - navigation "Main navigation" [ref=e9]:
+        - link "Today" [ref=e276] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - text: Today
+        - link "Settings" [ref=e277] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e16]
+          - text: Settings
+      - generic [ref=e19]:
+        - button "中文" [active] [ref=e278] [cursor=pointer]
+        - button "Switch to light mode" [ref=e21] [cursor=pointer]:
+          - img [ref=e22]
+  - main [ref=e24]:
+    - generic [ref=e128]:
+      - generic [ref=e130]:
+        - heading "Settings" [level=1] [ref=e279]
+        - paragraph [ref=e132]: Configure your WYCA digest sources and preferences
+      - generic [ref=e133]:
+        - generic [ref=e134]:
+          - generic [ref=e135]:
+            - heading "API Status" [level=2] [ref=e280]:
+              - img [ref=e137]
+              - text: API Status
+            - generic [ref=e140]: Disconnected
+          - generic [ref=e243]:
+            - generic [ref=e244]:
+              - generic [ref=e245]: Version
+              - generic [ref=e246]: 1.0.0
+            - generic [ref=e247]:
+              - generic [ref=e248]: Last Run
+              - generic [ref=e249]: N/A
+        - generic [ref=e142]:
+          - heading "Trigger Collection" [level=2] [ref=e281]:
+            - img [ref=e145]
+            - text: Trigger Collection
+          - generic [ref=e147]:
+            - paragraph [ref=e148]: Manually trigger a new collection run to fetch the latest items from all configured sources.
+            - button "Start Collection" [ref=e282] [cursor=pointer]
+        - generic [ref=e150]:
+          - heading "Sources" [level=2] [ref=e283]:
+            - img [ref=e153]
+            - text: Sources
+          - generic [ref=e156]:
+            - generic [ref=e157]:
+              - generic [ref=e158]:
+                - generic [ref=e159]: RSS Feeds
+                - generic [ref=e160]: rss
+              - generic [ref=e161]:
+                - generic [ref=e162]: 12 items
+                - generic [ref=e163]: 2 min ago
+                - generic [ref=e164]: Active
+            - generic [ref=e166]:
+              - generic [ref=e167]:
+                - generic [ref=e168]: Hacker News
+                - generic [ref=e169]: api
+              - generic [ref=e170]:
+                - generic [ref=e171]: 24 items
+                - generic [ref=e172]: 5 min ago
+                - generic [ref=e173]: Active
+            - generic [ref=e175]:
+              - generic [ref=e176]:
+                - generic [ref=e177]: ArXiv Papers
+                - generic [ref=e178]: api
+              - generic [ref=e179]:
+                - generic [ref=e180]: 8 items
+                - generic [ref=e181]: 10 min ago
+                - generic [ref=e182]: Active
+            - generic [ref=e184]:
+              - generic [ref=e185]:
+                - generic [ref=e186]: Reddit
+                - generic [ref=e187]: api
+              - generic [ref=e188]:
+                - generic [ref=e189]: Failed
+                - generic [ref=e190]: Error
+              - paragraph [ref=e192]: Invalid credentials
+            - generic [ref=e193]:
+              - generic [ref=e194]:
+                - generic [ref=e195]: TechCrunch
+                - generic [ref=e196]: rss
+              - generic [ref=e197]:
+                - generic [ref=e198]: 6 items
+                - generic [ref=e199]: 15 min ago
+                - generic [ref=e200]: Active
+            - generic [ref=e202]:
+              - generic [ref=e203]:
+                - generic [ref=e204]: Bloomberg
+                - generic [ref=e205]: rss
+              - generic [ref=e206]:
+                - generic [ref=e207]: Never
+                - generic [ref=e208]: Inactive
+        - generic [ref=e210]:
+          - heading "API Keys" [level=2] [ref=e284]:
+            - img [ref=e213]
+            - text: API Keys
+          - generic [ref=e216]:
+            - paragraph [ref=e217]: API keys are configured via environment variables. Contact your administrator to update keys.
+            - generic [ref=e218]:
+              - generic [ref=e219]:
+                - generic [ref=e220]:
+                  - generic [ref=e221]: NEWS_API_KEY
+                  - generic [ref=e222]: news_****...****8f3a
+                - generic [ref=e223]: Configured
+              - generic [ref=e224]:
+                - generic [ref=e225]:
+                  - generic [ref=e226]: OPENAI_API_KEY
+                  - generic [ref=e227]: sk-****...****k7j2
+                - generic [ref=e228]: Configured
+              - generic [ref=e229]:
+                - generic [ref=e230]:
+                  - generic [ref=e231]: REDDIT_CLIENT_ID
+                  - generic [ref=e232]: rdt_****...****4x9q
+                - generic [ref=e233]: Not set
+        - generic [ref=e234]:
+          - heading "Recent Digests" [level=2] [ref=e285]:
+            - img [ref=e237]
+            - text: Recent Digests
+          - generic [ref=e250]:
+            - link "2026-05-28 18 items" [ref=e286] [cursor=pointer]:
+              - /url: /digest/2026-05-28
+              - generic [ref=e252]: 2026-05-28
+              - generic [ref=e253]: 18 items
+              - img [ref=e254]
+            - link "2026-05-27 22 items" [ref=e287] [cursor=pointer]:
+              - /url: /digest/2026-05-27
+              - generic [ref=e257]: 2026-05-27
+              - generic [ref=e258]: 22 items
+              - img [ref=e259]
+            - link "2026-05-26 15 items" [ref=e288] [cursor=pointer]:
+              - /url: /digest/2026-05-26
+              - generic [ref=e262]: 2026-05-26
+              - generic [ref=e263]: 15 items
+              - img [ref=e264]
+            - link "2026-05-25 20 items" [ref=e289] [cursor=pointer]:
+              - /url: /digest/2026-05-25
+              - generic [ref=e267]: 2026-05-25
+              - generic [ref=e268]: 20 items
+              - img [ref=e269]
+            - link "2026-05-24 12 items" [ref=e290] [cursor=pointer]:
+              - /url: /digest/2026-05-24
+              - generic [ref=e272]: 2026-05-24
+              - generic [ref=e273]: 12 items
+              - img [ref=e274]
+  - contentinfo [ref=e90]:
+    - paragraph [ref=e92]:
+      - generic [ref=e93]: WYCA
+      - generic [ref=e94]: ·
+      - generic [ref=e95]: What's Your Care About?
+      - generic [ref=e96]: ·
+      - generic [ref=e97]: v1.0

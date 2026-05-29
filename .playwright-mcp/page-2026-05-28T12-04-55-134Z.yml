@@ -1,0 +1,76 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "W WYCA" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: W
+        - generic [ref=e8]: WYCA
+      - navigation "Main navigation" [ref=e9]:
+        - link "今日" [ref=e113] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - text: 今日
+        - link "设置" [ref=e114] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e16]
+          - text: 设置
+      - generic [ref=e19]:
+        - button "EN" [active] [ref=e115] [cursor=pointer]
+        - button "Switch to light mode" [ref=e21] [cursor=pointer]:
+          - img [ref=e22]
+  - main [ref=e24]:
+    - generic [ref=e25]:
+      - generic [ref=e28]:
+        - heading "今日 热点摘要" [level=1] [ref=e116]:
+          - generic [ref=e30]: 今日
+          - text: 热点摘要
+        - paragraph [ref=e98]: 2026年5月28日星期四
+        - generic [ref=e99]:
+          - generic [ref=e100]:
+            - generic [ref=e101]: "8"
+            - generic [ref=e102]: 条
+          - generic [ref=e103]: ·
+          - generic [ref=e104]:
+            - generic [ref=e105]: "6"
+            - generic [ref=e106]: 个领域
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - img
+          - textbox "搜索新闻..." [ref=e117]
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - button "全部" [ref=e118] [cursor=pointer]:
+              - generic [ref=e37]: 全部
+            - button "🤖 人工智能" [ref=e119] [cursor=pointer]:
+              - generic [ref=e39]: 🤖
+              - generic [ref=e40]: 人工智能
+            - button "💰 金融" [ref=e120] [cursor=pointer]:
+              - generic [ref=e42]: 💰
+              - generic [ref=e43]: 金融
+            - button "📚 学术" [ref=e121] [cursor=pointer]:
+              - generic [ref=e45]: 📚
+              - generic [ref=e46]: 学术
+            - button "💻 科技" [ref=e122] [cursor=pointer]:
+              - generic [ref=e48]: 💻
+              - generic [ref=e49]: 科技
+            - button "📰 综合" [ref=e123] [cursor=pointer]:
+              - generic [ref=e51]: 📰
+              - generic [ref=e52]: 综合
+            - button "🌐 社交" [ref=e124] [cursor=pointer]:
+              - generic [ref=e54]: 🌐
+              - generic [ref=e55]: 社交
+          - button "浏览" [ref=e125] [cursor=pointer]:
+            - img [ref=e58]
+            - text: 浏览
+      - generic [ref=e108]:
+        - generic [ref=e109]: "!"
+        - heading "无法加载摘要" [level=3] [ref=e126]
+        - paragraph [ref=e111]: timeout of 10000ms exceeded
+        - button "重试" [ref=e127] [cursor=pointer]
+  - contentinfo [ref=e90]:
+    - paragraph [ref=e92]:
+      - generic [ref=e93]: WYCA
+      - generic [ref=e94]: ·
+      - generic [ref=e95]: What's Your Care About?
+      - generic [ref=e96]: ·
+      - generic [ref=e97]: v1.0

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
 from src.database import get_connection
 
@@ -49,8 +50,8 @@ def get_setting(key: str, default=None):
         conn.close()
 
 
-def set_setting(key: str, value) -> None:
-    """Write a single setting. Value is JSON-serialized."""
+def set_setting(key: str, value) -> bool:
+    """Write a single setting. Value is JSON-serialized. Returns True on success, False on failure."""
     conn = get_connection()
     try:
         conn.execute(
@@ -59,8 +60,10 @@ def set_setting(key: str, value) -> None:
         )
         conn.commit()
         logger.debug("Setting updated: %s", key)
+        return True
     except Exception:
         logger.error("Failed to write setting: %s", key, exc_info=True)
+        return False
     finally:
         conn.close()
 
@@ -136,10 +139,11 @@ def get_effective_config() -> dict:
 
     config = load_config()
 
-    # Override sources from settings
+    # Deep-merge sources from settings into config sources
     sources = get_setting("sources")
     if sources:
-        config["sources"] = sources
+        for name, cfg in sources.items():
+            config["sources"][name] = cfg
 
     # Override ai_summary from settings
     ai_summary = get_setting("ai_summary")
@@ -155,5 +159,17 @@ def get_effective_config() -> dict:
     proxy = get_setting("proxy")
     if proxy is not None:
         config["proxy"] = proxy
+
+    # Inject API keys from settings into environment variables
+    for key_name in [
+        "MIMO_API_KEY",
+        "NEWSAPI_KEY",
+        "FINNHUB_KEY",
+        "DAILYHOT_API_URL",
+        "HTTPS_PROXY",
+    ]:
+        val = get_setting(f"key:{key_name}")
+        if val:
+            os.environ[key_name] = val
 
     return config

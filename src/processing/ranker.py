@@ -133,7 +133,8 @@ def rank_items(items: Sequence[Item], config: dict) -> dict[str, list[Item]]:
     scored_items: list[tuple[Item, str, float]] = []
 
     for item in normalized:
-        source_cfg = sources_cfg.get(item.source, {})
+        base_source = item.source.split(":")[0]
+        source_cfg = sources_cfg.get(base_source, {})
         source_weight: float = source_cfg.get("weight", 1.0)
         engagement = item.score  # already 0-1 after normalization
 

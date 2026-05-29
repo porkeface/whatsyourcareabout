@@ -9,6 +9,7 @@ import re
 import sqlite3
 import time
 from collections import defaultdict
+from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,13 @@ _RATE_LIMIT_MAX = 10  # max requests per window per IP
 def _check_rate_limit(ip: str) -> None:
     now = time.monotonic()
     cutoff = now - _RATE_LIMIT_WINDOW
+
+    # Evict stale IPs that have been inactive for 2x the window
+    stale_cutoff = now - (2 * _RATE_LIMIT_WINDOW)
+    stale_ips = [k for k, v in _rate_store.items() if v and v[-1] < stale_cutoff]
+    for k in stale_ips:
+        del _rate_store[k]
+
     _rate_store[ip] = [t for t in _rate_store[ip] if t > cutoff]
     if len(_rate_store[ip]) >= _RATE_LIMIT_MAX:
         raise HTTPException(status_code=429, detail="Too many requests")
@@ -218,9 +226,13 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def _validate_date(date_str: str) -> str:
-    """Validate a date string is in YYYY-MM-DD format."""
+    """Validate a date string is in YYYY-MM-DD format and represents a real date."""
     if not _DATE_RE.match(date_str):
         raise HTTPException(status_code=400, detail=f"Invalid date format: {date_str}. Expected YYYY-MM-DD.")
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid date: {date_str}. Not a real calendar date.")
     return date_str
 
 
@@ -346,16 +358,10 @@ async def list_items(
         conditions: list[str] = []
         params: list[Any] = []
 
-        ALLOWED_COLUMNS = {"domain", "source"}
-
         if domain:
-            if domain not in ALLOWED_COLUMNS:
-                raise HTTPException(status_code=400, detail=f"Invalid domain filter: {domain}")
             conditions.append("domain = ?")
             params.append(domain)
         if source:
-            if source not in ALLOWED_COLUMNS:
-                raise HTTPException(status_code=400, detail=f"Invalid source filter: {source}")
             conditions.append("source = ?")
             params.append(source)
         if date:
@@ -443,12 +449,25 @@ async def get_settings(request: Request) -> dict:
     return get_all_settings()
 
 
+ALLOWED_SETTINGS_KEYS = {"sources", "ai_summary", "processing", "proxy"}
+
+
 @app.put("/api/settings")
 async def update_settings(request: Request, body: dict) -> dict[str, str]:
     """Batch update settings."""
     _check_rate_limit(request.client.host if request.client else "unknown")
+    unknown = set(body.keys()) - ALLOWED_SETTINGS_KEYS
+    if unknown:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown settings key(s): {', '.join(sorted(unknown))}",
+        )
+    failed = []
     for key, value in body.items():
-        set_setting(key, value)
+        if not set_setting(key, value):
+            failed.append(key)
+    if failed:
+        raise HTTPException(status_code=500, detail=f"Failed to update settings: {', '.join(failed)}")
     return {"status": "updated"}
 
 
@@ -480,7 +499,8 @@ async def update_source(name: str, request: Request, body: dict) -> dict[str, st
             source[key] = body[key]
 
     sources[name] = source
-    set_setting("sources", sources)
+    if not set_setting("sources", sources):
+        raise HTTPException(status_code=500, detail=f"Failed to update source '{name}'")
     return {"status": "updated"}
 
 
@@ -508,9 +528,13 @@ async def get_keys(request: Request) -> list[dict]:
 async def update_keys(request: Request, body: dict) -> dict[str, str]:
     """Update API keys. Keys are stored in the settings table."""
     _check_rate_limit(request.client.host if request.client else "unknown")
+    failed = []
     for env_key, value in body.items():
         if env_key in _API_KEY_MAP and value:
-            set_setting(f"key:{env_key}", value)
+            if not set_setting(f"key:{env_key}", value):
+                failed.append(env_key)
+    if failed:
+        raise HTTPException(status_code=500, detail=f"Failed to update keys: {', '.join(failed)}")
     return {"status": "updated"}
 
 

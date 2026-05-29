@@ -452,12 +452,4 @@ def _parse_summary_response(
                     result[item.url_hash] = normalized
                     break
 
-    # Never return partial results that are too small
-    if len(result) < len(items) // 2:
-        logger.debug(
-            "Only matched %d/%d items, discarding partial result",
-            len(result), len(items),
-        )
-        return {}
-
     return result

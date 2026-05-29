@@ -1,0 +1,61 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "W WYCA" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: W
+        - generic [ref=e8]: WYCA
+      - navigation "Main navigation" [ref=e9]:
+        - link "Today" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - text: Today
+        - link "Settings" [ref=e14] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e16]
+          - text: Settings
+      - generic [ref=e19]:
+        - button "中文" [ref=e20] [cursor=pointer]
+        - button "Switch to light mode" [ref=e21] [cursor=pointer]:
+          - img [ref=e22]
+  - main [ref=e24]:
+    - generic [ref=e25]:
+      - heading "Today's Digest" [level=1] [ref=e29]:
+        - generic [ref=e30]: Today's
+        - text: Digest
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - img
+          - textbox "Search news..." [ref=e33]
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - button "All" [ref=e36] [cursor=pointer]:
+              - generic [ref=e37]: All
+            - button "🤖 AI" [ref=e38] [cursor=pointer]:
+              - generic [ref=e39]: 🤖
+              - generic [ref=e40]: AI
+            - button "💰 Finance" [ref=e41] [cursor=pointer]:
+              - generic [ref=e42]: 💰
+              - generic [ref=e43]: Finance
+            - button "📚 Academic" [ref=e44] [cursor=pointer]:
+              - generic [ref=e45]: 📚
+              - generic [ref=e46]: Academic
+            - button "💻 Tech" [ref=e47] [cursor=pointer]:
+              - generic [ref=e48]: 💻
+              - generic [ref=e49]: Tech
+            - button "📰 General" [ref=e50] [cursor=pointer]:
+              - generic [ref=e51]: 📰
+              - generic [ref=e52]: General
+            - button "🌐 Social" [ref=e53] [cursor=pointer]:
+              - generic [ref=e54]: 🌐
+              - generic [ref=e55]: Social
+          - button "Browse" [ref=e57] [cursor=pointer]:
+            - img [ref=e58]
+            - text: Browse
+  - contentinfo [ref=e90]:
+    - paragraph [ref=e92]:
+      - generic [ref=e93]: WYCA
+      - generic [ref=e94]: ·
+      - generic [ref=e95]: What's Your Care About?
+      - generic [ref=e96]: ·
+      - generic [ref=e97]: v1.0

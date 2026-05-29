@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { getHealth, triggerCollect, getDigests, getSources, updateSource, getKeys } from '../api/client.js'
 import { useI18n } from '../composables/useI18n.js'
 
@@ -108,14 +108,13 @@ async function toggleRoute(sourceName, routeIndex) {
   const source = sources.value[sourceName]
   if (!source) return
 
-  const routes = [...(source.routes || source.feeds || [])]
+  const key = source.routes ? 'routes' : 'feeds'
+  const routes = JSON.parse(JSON.stringify(source[key] || []))
   const route = routes[routeIndex]
   if (!route) return
 
-  // Toggle enabled state (default true if not set)
   route.enabled = route.enabled === undefined ? false : !route.enabled
 
-  const key = source.routes ? 'routes' : 'feeds'
   try {
     await updateSource(sourceName, { [key]: routes })
     sources.value[sourceName] = { ...source, [key]: routes }
@@ -128,9 +127,12 @@ async function updateSourceWeight(name, weight) {
   const source = sources.value[name]
   if (!source) return
 
+  const parsed = parseFloat(weight)
+  if (isNaN(parsed)) return
+
   try {
-    await updateSource(name, { weight: parseFloat(weight) })
-    sources.value[name] = { ...source, weight: parseFloat(weight) }
+    await updateSource(name, { weight: parsed })
+    sources.value[name] = { ...source, weight: parsed }
   } catch (err) {
     console.error('Failed to update weight:', err)
   }
@@ -140,9 +142,12 @@ async function updateSourceMaxItems(name, maxItems) {
   const source = sources.value[name]
   if (!source) return
 
+  const parsed = parseInt(maxItems)
+  if (isNaN(parsed)) return
+
   try {
-    await updateSource(name, { max_items: parseInt(maxItems) })
-    sources.value[name] = { ...source, max_items: parseInt(maxItems) }
+    await updateSource(name, { max_items: parsed })
+    sources.value[name] = { ...source, max_items: parsed }
   } catch (err) {
     console.error('Failed to update max_items:', err)
   }
@@ -155,10 +160,10 @@ async function handleCollect() {
 
   try {
     const response = await triggerCollect()
-    collectMessage.value = response.data?.status === 'started' ? '采集已启动' : 'Collection triggered'
+    collectMessage.value = response.data?.status === 'started' ? t('settings.collectionStarted') : 'Collection triggered'
     collectMessageType.value = 'success'
   } catch (err) {
-    collectMessage.value = err.response?.data?.detail || '采集已启动（后端可能未运行）'
+    collectMessage.value = err.userMessage || err.response?.data?.detail || t('settings.collectionFallback')
     collectMessageType.value = 'warning'
   } finally {
     collecting.value = false
@@ -286,12 +291,12 @@ onMounted(async () => {
                   <span class="source-emoji">{{ getSourceEmoji(name) }}</span>
                   <span class="source-name">{{ getSourceLabel(name) }}</span>
                   <span class="route-count" v-if="hasRoutes(name)">
-                    {{ getRoutes(name).length }} 项
+                    {{ t('settings.routeCount', { count: getRoutes(name).length }) }}
                   </span>
                 </div>
                 <div class="source-controls">
                   <div class="source-param">
-                    <label class="param-label">权重</label>
+                    <label class="param-label">{{ t('settings.weight') }}</label>
                     <input
                       type="number"
                       class="param-input"
@@ -303,7 +308,7 @@ onMounted(async () => {
                     />
                   </div>
                   <div class="source-param">
-                    <label class="param-label">最大条数</label>
+                    <label class="param-label">{{ t('settings.maxItems') }}</label>
                     <input
                       type="number"
                       class="param-input"
@@ -322,7 +327,7 @@ onMounted(async () => {
                     <span class="toggle-track">
                       <span class="toggle-thumb"></span>
                     </span>
-                    <span class="toggle-label">{{ source.enabled ? '启用' : '禁用' }}</span>
+                    <span class="toggle-label">{{ source.enabled ? t('settings.enable') : t('settings.disable') }}</span>
                   </button>
                 </div>
               </div>
@@ -370,7 +375,7 @@ onMounted(async () => {
         </div>
         <div class="card-body">
           <p class="card-description muted">
-            API 密钥通过环境变量配置。在 .env 文件中设置。
+            {{ t('settings.apiKeysEnvHint') }}
           </p>
           <div class="keys-list">
             <div
@@ -380,13 +385,13 @@ onMounted(async () => {
             >
               <div class="key-info">
                 <span class="key-name">{{ key.name }}</span>
-                <span class="key-value">{{ key.masked || '未设置' }}</span>
+                <span class="key-value">{{ key.masked || t('settings.notSet') }}</span>
               </div>
               <span
                 class="key-status"
                 :class="{ configured: key.configured }"
               >
-                {{ key.configured ? '已配置' : '未设置' }}
+                {{ key.configured ? t('settings.configured') : t('settings.notSet') }}
               </span>
             </div>
           </div>

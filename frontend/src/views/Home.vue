@@ -116,7 +116,7 @@ async function loadDigest(date = null) {
       selectedDate.value = response.data.date
     }
   } catch (err) {
-    error.value = err.response?.data?.detail || err.message || 'Failed to load digest'
+    error.value = err.userMessage || err.response?.data?.detail || err.message || 'Failed to load digest'
     digest.value = null
     selectedDate.value = getTodayStr()
   } finally {
